@@ -21,7 +21,7 @@ const ICON={
 
 /* ---------- local state ---------- */
 const KEY='nwn-v1';
-const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:10,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0};
+const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0};
 let S=Object.assign(structuredClone(DEF),ls.get(KEY,{}));
 let LOCAL=Object.assign({hello:false,role:'student'},ls.get('nwn-local',{}));
 function saveLocal(){ls.set('nwn-local',LOCAL)}
@@ -203,7 +203,8 @@ function missedYesterday(){const st=S.streak;if(!st.last)return false;const y=ne
 /* ---------- hàng đợi ôn ---------- */
 function unlockedDecks(){return DECKS.filter(available)}
 function dueIds(){const now=Date.now(),ok=new Set(unlockedDecks().map(d=>d.id));return Object.entries(S.cards).filter(([id,c])=>ok.has(c.deck)&&CARDS.has(id)&&new Date(c.due).getTime()<=now).sort((a,b)=>new Date(a[1].due)-new Date(b[1].due)).map(x=>x[0])}
-function newLeft(){return Math.max(0,S.newPerDay-today().nw)}
+function newLeft(){return S.newPerDay?Math.max(0,S.newPerDay-today().nw):Infinity} // 0 = không giới hạn
+const BATCH=20; // một lượt học tối đa 20 thẻ mới, học xong bấm Học tiếp
 function newIds(n,deck){
   // trong một bài: từ vựng/chữ Kanji trước, rồi ngữ pháp/từ ghép; giữa các bài: xen kẽ
   // trong một bài Minna: cứ 3 thẻ từ vựng thì xen 1 thẻ ngữ pháp; Kanji: chữ trước, rồi các từ của chữ đó
@@ -253,13 +254,13 @@ function vWelcome(){$('.nav').hidden=true;
 
 /* ---------- trang chủ ---------- */
 function vHome(){nav('home');
-  const due=dueIds().length,nl=Math.min(newLeft(),newIds(99).length),st=streakNow();
+  const due=dueIds().length,nl=Math.min(newLeft(),newIds(9999).length),st=streakNow();
   let img,msg;
   if(!LOCAL.hello){img='01_vui_bat_ngo';msg='Chào em Na! Từ nay mình học tiếng Nhật cùng nhau nha. Mỗi ngày một chút thôi là được.'}
   else if(missedYesterday()){img='n05_doi';msg='Hôm qua em không học nè… anh dỗi đó! Ôn với anh một chút đi~'}
   else if(st&&st%7===0&&S.streak.last===dkey()){img='06_om_nhau';msg=`Chuỗi ${st} ngày rồi! Giỏi quá đi mất!`}
   else if(due>0){img='n06_nhac_gio';msg=`Còn ${due} thẻ đang chờ em ôn nè. Nhanh lắm, 5 phút thôi!`}
-  else if(nl>0){img='g1_cuoi_vui';msg=`Hôm nay mình học ${nl} thẻ mới nha em!`}
+  else if(nl>0){img='g1_cuoi_vui';msg=S.newPerDay?`Hôm nay mình học ${nl} thẻ mới nha em!`:`Có ${nl} thẻ mới đang chờ. Mỗi lượt 20 thẻ, học bao nhiêu tùy em nha!`}
   else{img='07_lo_dau';msg='Xong hết bài hôm nay rồi! Em đi chơi game hay nghỉ ngơi đi~'}
   const t=today();
   app.innerHTML=`<div class="stack">
@@ -393,7 +394,7 @@ let sessionDeck=null,Q=[],qi=0,shown=false,sessStart=0,doneCount=0,okStreak=0,br
 function sessionStop(){if(sessStart){today().secs+=Math.round((Date.now()-sessStart)/1000);save();sessStart=0}}
 function vReview(){nav('home');
   const due=dueIds().filter(id=>!sessionDeck||S.cards[id].deck===sessionDeck);
-  const nw=newIds(sessionDeck?Math.max(newLeft(),5):newLeft(),sessionDeck);
+  const nw=newIds(Math.min(BATCH,sessionDeck?Math.max(newLeft(),5):newLeft()),sessionDeck);
   Q=due.concat(nw);qi=0;doneCount=0;okStreak=0;breakShown=false;
   if(!Q.length){sessionDeck=null;app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('07_lo_dau')}" alt=""><div class="bubble">Không còn thẻ nào để ôn lúc này. Em giỏi quá!</div></div><a class="btn wide" href="#home">Về trang chính</a></div>`;return}
   sessStart=Date.now();renderCard();
@@ -456,7 +457,8 @@ function grade(id,c,r,rec){const isNew=!S.cards[id];const t=today();
 function finish(){sessionStop();sessionDeck=null;const t=today();sync();
   app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('02_ban_tay_tim')}" alt=""><div class="bubble">Xong rồi! Hôm nay em ôn ${t.rev} thẻ, đúng ${t.ok}. Anh thương em nhiều lắm!</div></div>
   <div class="stats"><div class="stat"><b>${doneCount}</b><span>lượt vừa ôn</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div></div>
-  <a class="btn wide" href="#games">Chơi game thư giãn</a><a class="btn ghost wide" href="#home">Về trang chính</a></div>`}
+  ${dueIds().length||(newLeft()>0&&newIds(1).length)?'<button class="btn wide" id="more">Học tiếp</button>':''}<a class="btn ${dueIds().length||newIds(1).length?'ghost ':''}wide" href="#games">Chơi game thư giãn</a><a class="btn ghost wide" href="#home">Về trang chính</a></div>`;
+  $('#more')&&($('#more').onclick=()=>vReview())}
 
 /* ---------- game ---------- */
 function gamePool(){const p=[];
@@ -506,7 +508,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   app.innerHTML=`<div class="stack"><div class="row"><img src="${IMG('r_na')}" alt="" width="72" height="72" style="border-radius:50%"><div><h1>Lê Na</h1><div class="muted" style="font-weight:700">Học cùng anh Nhân</div>${syncBadge()}</div></div>
   <div class="stats"><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${S.streak.best}</b><span>chuỗi dài nhất</span></div><div class="stat"><b>${learnedN}</b><span>thẻ đã thuộc</span></div></div>
   <div class="card stack"><h3>Cài đặt</h3>
-    <label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="50" value="${S.newPerDay}"></label>
+    <label class="field" for="npd">Số thẻ mới mỗi ngày (0 = không giới hạn)<input id="npd" type="number" min="0" max="500" value="${S.newPerDay}"></label>
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
   <div class="card stack"><h3>Đồng bộ</h3><p class="muted" style="margin:0;font-size:.9rem">Tiến độ tự lưu lên mạng bằng mã học. Mất mạng vẫn học được, có mạng lại thì app tự gửi lên.</p>
@@ -514,7 +516,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
     <button class="btn ghost" id="lo">Thoát mã trên máy này</button></div>
   <a class="card lesson" href="#teacher" style="text-decoration:none;color:inherit"><img src="${IMG('r_nhan')}" alt="" width="52" height="52" style="border-radius:50%"><span><h3>Trang giáo viên</h3><span class="muted" style="font-size:.85rem">Dành cho anh Nhân: mở bài, xem tiến độ</span></span><span>›</span></a>
   <p class="foot">${tot} thẻ đã gặp · Nét viết từ KanjiVG (CC BY-SA 3.0) · Thuật toán FSRS (ts-fsrs)</p></div>`;
-  $('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(50,+e.target.value||10));touchSettings();save()};
+  $('#npd').onchange=e=>{S.newPerDay=Math.max(0,Math.min(500,Math.round(+e.target.value)||0));touchSettings();save()};
   $('#vt').onclick=()=>say('はじめまして。どうぞ　よろしく。');
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
