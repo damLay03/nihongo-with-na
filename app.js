@@ -5,7 +5,7 @@
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const IMG=n=>'img/'+n+'.webp';
+const IMG=n=>{const t=typeof themeMap==='function'?themeMap():null;return t&&t[n]?'img/s/'+t[n]+'.webp':'img/'+n+'.webp'};
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const dkey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -638,6 +638,14 @@ function showReveal(){const q=LOCAL.pend||[];if(!q.length||isT()||$('#gift')||/^
   };
   const next=()=>{i++;if(i<n)step();else{LOCAL.pend=[];saveLocal();root.classList.add('bye');setTimeout(()=>root.remove(),250);if(location.hash!=='#album')go('album')}};
   step();return true}
+// Bộ đã sưu tập đủ thì dùng thay sticker mặc định của app. Chỗ nào bộ không có sticker hợp thì giữ sticker mặc định.
+const THEMES={
+ p1:{'01_vui_bat_ngo':'1-03','06_om_nhau':'1-01','02_ban_tay_tim':'1-06','g1_cuoi_vui':'1-08','n03_ninh_na':'1-07','g6_chu_v':'1-08','08_an_mung':'1-08','07_lo_dau':'1-09','na04_met':'1-05','05_vo_ve_an_ui':'1-04','na01_hoc_bai':'1-02','n04_co_vu':'1-07','n02_nghiem_tuc':'1-06'},
+ p2:{'01_vui_bat_ngo':'2-09','06_om_nhau':'2-10','02_ban_tay_tim':'2-01','g1_cuoi_vui':'2-02','n03_ninh_na':'2-05','g6_chu_v':'2-09','08_an_mung':'2-03','07_lo_dau':'2-04','na04_met':'2-04','05_vo_ve_an_ui':'2-07','n04_co_vu':'2-03','na01_hoc_bai':'2-06'},
+ p3:{'01_vui_bat_ngo':'3-08','06_om_nhau':'3-01','02_ban_tay_tim':'3-06','g1_cuoi_vui':'3-07','n03_ninh_na':'3-02','g6_chu_v':'3-07','08_an_mung':'3-01','07_lo_dau':'3-05','n01_nhay':'3-04','05_vo_ve_an_ui':'3-06','04_thi_tham':'3-03','n04_co_vu':'3-08','na01_hoc_bai':'3-03'},
+ p4:{'01_vui_bat_ngo':'4-03','06_om_nhau':'4-01','02_ban_tay_tim':'4-09','g1_cuoi_vui':'4-02','n03_ninh_na':'4-02','g6_chu_v':'4-04','08_an_mung':'4-02','07_lo_dau':'4-08','na04_met':'4-09','n05_doi':'4-05','n01_nhay':'4-07','05_vo_ve_an_ui':'4-01','n04_co_vu':'4-03'}};
+const packDone=id=>{const p=STK.find(x=>x.id===id);return !!(p&&p.items&&p.items.every(it=>S.stk[it[0]]))};
+function themeMap(){if(isT())return null;const t=LOCAL.theme;return t&&THEMES[t]&&packDone(t)?THEMES[t]:null}
 function vAlbum(){nav('album');const fresh=new Set(LOCAL.fresh||[]);
   const packs=STK.map((p,pi)=>{
     if(p.soon)return `<div class="card pack soon"><div class="row" style="justify-content:space-between"><h3>${esc(p.name)}</h3><span class="pill">Sắp ra mắt</span></div><div class="sgrid">${'<div class="scell q">?</div>'.repeat(3)}</div><p class="muted" style="margin:0;font-size:.85rem">Điều kiện mở: ${esc(p.soon)}</p></div>`;
@@ -646,9 +654,11 @@ function vAlbum(){nav('album');const fresh=new Set(LOCAL.fresh||[]);
     const hint=nx==null?'Đủ bộ rồi! Giỏi quá đi':`Còn ${nx-v} ${MLAB[p.m][0]} nữa là có sticker tiếp theo`;
     return `<div class="card pack stack"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted" style="font-size:.82rem;font-weight:700">${MLAB[p.m][1]} · đang có ${v} ${MLAB[p.m][0]}</span></span><span class="pill">${have}/${p.items.length}</span></div>
       <div class="sgrid">${p.items.map((it,i)=>S.stk[it[0]]?`<button class="scell${fresh.has(it[0])?' new':''}" data-st="${it[0]}" style="--i:${i}" aria-label="${esc(it[1])}"><img src="${SIMG(it[0])}" alt="" loading="lazy"></button>`:`<div class="scell lock" style="--i:${i}"><img src="${SIMG(it[0])}" alt="" loading="lazy"><small>${p.goal[i]}</small></div>`).join('')}</div>
-      <div><div class="bar"><i style="width:${pr}%"></i></div><p class="muted" style="margin:6px 0 0;font-size:.85rem;font-weight:700">${hint}</p></div></div>`}).join('');
+      <div><div class="bar"><i style="width:${pr}%"></i></div><p class="muted" style="margin:6px 0 0;font-size:.85rem;font-weight:700">${hint}</p></div>
+      ${THEMES[p.id]?(nx==null?`<button class="btn ${LOCAL.theme===p.id?'':'ghost '}wide" data-th="${p.id}">${LOCAL.theme===p.id?'Đang dùng cho app · bấm để về mặc định':'Dùng bộ này cho cả app'}</button>`:`<p class="muted" style="margin:0;font-size:.82rem">Đủ bộ thì dùng được bộ này thay sticker của cả app</p>`):''}</div>`}).join('');
   app.innerHTML=`<div class="stack"><div class="top"><div><h1>Bộ sưu tập</h1><div class="muted" style="font-weight:800">${stkHave()}/${stkTotal()} sticker · học càng nhiều càng mở nhiều</div></div><img src="${IMG('02_ban_tay_tim')}" alt="" width="64" height="64" class="floaty"></div>${packs}</div>`;
   app.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>stickerSheet(b.dataset.st));
+  app.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{const id=b.dataset.th;LOCAL.theme=LOCAL.theme===id?'':id;saveLocal();const [x,y]=mid(b);vAlbum();if(LOCAL.theme){burst(x,y,12);toast('g1_cuoi_vui','Đổi xong! Cả app giờ mặc đồ '+STK.find(p=>p.id===id).name+' nè~',2400)}else toast('g1_cuoi_vui','Về sticker mặc định rồi nha',1800)});
   if(fresh.size){LOCAL.fresh=[];saveLocal()}
   setTimeout(showReveal,350)}
 function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const d=new Date(S.stk[id]);
