@@ -300,6 +300,25 @@ ruby.hide rt{visibility:hidden}
 .lockbig{filter:brightness(0)!important;opacity:.15;width:min(50vw,180px)}
 .btn[disabled]{opacity:.5;pointer-events:none}
 .vol input{width:100%;accent-color:var(--pink);padding:0;border:0;background:none}
+.trip{display:flex;align-items:center;gap:10px}
+.track{position:relative;height:46px;min-width:0}
+.lane{position:absolute;left:16px;right:34px;top:18px;height:12px;border-radius:99px;background:var(--surface2);overflow:hidden;border:2px solid var(--line)}
+.fill{position:absolute;inset:0;background:repeating-linear-gradient(45deg,var(--pink) 0 8px,var(--peach) 8px 16px);transform-origin:left;transition:transform .55s cubic-bezier(.34,1.3,.64,1)}
+.marks{position:absolute;left:16px;right:34px;top:13px;height:22px;pointer-events:none}
+.mk{position:absolute;top:0;transform:translateX(-50%);font-size:15px;line-height:22px;color:var(--line)}
+.mk.on{color:var(--pink-deep)}
+.mk.pop{animation:popIn .5s cubic-bezier(.34,1.56,.64,1)}
+.rwrap{position:absolute;left:0;top:0;width:calc(100% - 50px);height:100%;transition:transform .55s cubic-bezier(.34,1.3,.64,1);pointer-events:none}
+.runner{position:absolute;left:0;top:4px;width:34px;height:34px;border-radius:50%;background:var(--surface);border:2px solid var(--pink);object-fit:cover}
+.runner.hop{animation:jump .5s ease-out}
+.goal{position:absolute;right:0;top:4px;width:36px;height:36px;border-radius:50%;background:var(--surface);border:2px solid var(--line);object-fit:cover;animation:floaty 2.4s ease-in-out infinite}
+.trip .cnt{flex:none}
+.tripmsg{display:flex;gap:8px;align-items:center;justify-content:center;min-height:26px;flex-wrap:wrap;margin-top:-6px}
+.tripmsg .tm{font-weight:800;color:var(--pink-deep);font-size:.9rem;animation:bubbleIn .35s ease-out both}
+.combo{background:#FFE07A;color:#7A4A00;font-weight:900;font-size:.85rem;padding:3px 10px;border-radius:99px;animation:pulse .4s ease-out}
+:root[data-view="review"] .toast,:root[data-view="review"] .stkping{top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+:root[data-view="review"] .stkping{bottom:calc(196px + env(safe-area-inset-bottom,0px))}
+:root[data-view="review"] .toast img{width:56px}
 </style>
 </head>
 <body>
