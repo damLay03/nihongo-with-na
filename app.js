@@ -93,13 +93,14 @@ function merge(a,b){
   const seen=new Set(o.games.map(g=>g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'')));
   (b.games||[]).forEach(g=>{const k=g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'');if(!seen.has(k)){seen.add(k);o.games.push(g)}});
   o.games.sort((x,y)=>(x.at||0)-(y.at||0));o.games=o.games.slice(-200);
-  o.th=o.th||b.th;
+  o.th=o.th||b.th;o.wipedAt=Math.max(a.wipedAt||0,b.wipedAt||0)||undefined;if(!o.wipedAt)delete o.wipedAt;
   delete o.stk;o.own=Object.assign({},b.own||{},o.own||{});for(const [k,v] of Object.entries(b.own||{}))if(v<o.own[k])o.own[k]=v;
   o.buy=Object.assign({},b.buy||{},o.buy||{});o.ev=Object.assign({},o.ev||{});for(const [k,v] of Object.entries(b.ev||{}))o.ev[k]=Math.max(o.ev[k]||0,v||0);
   o.push=Object.assign({},o.push||{});for(const [k,v] of Object.entries(b.push||{}))if(!o.push[k]||(v.at||0)>(o.push[k].at||0))o.push[k]=v;
   if((b.setAt||0)>(o.setAt||0)){o.unlocked=b.unlocked;o.newPerDay=b.newPerDay;o.pin=b.pin;o.setAt=b.setAt}
   return o;
 }
+function wipeProgress(x,R){const o=Object.assign({},x,{cards:{},log:{},stars:0,streak:{last:'',count:0,best:0},games:[],own:{},ev:{},buy:{},wipedAt:R});delete o.stk;return o}
 async function sync(){
   if(!CODE||syncState.busy)return;
   if(!navigator.onLine){syncState.ok=false;syncState.err='offline';paintSync();return}
@@ -107,10 +108,14 @@ async function sync(){
   try{
     const f=await fsGet('spaces/'+encodeURIComponent(CODE));
     if(!f){syncState.err='Mã không còn đúng';syncState.ok=false;return}
-    const remote=f.data&&f.data.stringValue?JSON.parse(f.data.stringValue):{};
+    let remote=f.data&&f.data.stringValue?JSON.parse(f.data.stringValue):{};
     const before=JSON.stringify(S);
+    // anh reset dữ liệu: dấu reset nằm trong unlocked (bản cũ của app vẫn giữ được); máy nào chưa xóa thì xóa tiến độ trước khi gộp
+    const R=(remote.unlocked&&remote.unlocked.__reset)||0;let stale=false;
+    if(R>(S.wipedAt||0)){S=wipeProgress(S,R);LOCAL.pend3=[];LOCAL.fresh3=[];LOCAL.theme='';saveLocal()}
+    if(R&&(remote.wipedAt||0)<R){remote=wipeProgress(remote,R);stale=true}
     S=merge(S,remote);ls.set(KEY,S);LEARNED=null;
-    if(JSON.stringify(merge(remote,S))!==JSON.stringify(remote)||!f.data)await fsSaveSpace(CODE,JSON.stringify(S));
+    if(stale||JSON.stringify(merge(remote,S))!==JSON.stringify(remote)||!f.data)await fsSaveSpace(CODE,JSON.stringify(S));
     syncState.ok=true;syncState.err='';syncState.at=Date.now();
     if(JSON.stringify(S)!==before&&!/^#(review|game-)/.test(location.hash))route(true);
   }catch(e){syncState.ok=false;syncState.err=String(e.message||e)}
