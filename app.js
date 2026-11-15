@@ -320,14 +320,14 @@ function vHome(){nav('home');
   else if(due>0){img='n06_nhac_gio';msg=`Còn ${due} thẻ đang chờ em ôn nè. Nhanh lắm, 5 phút thôi!`}
   else if(nl>0){img='g1_cuoi_vui';msg=S.newPerDay?`Hôm nay mình học ${nl} thẻ mới nha em!`:`Có ${nl} thẻ mới đang chờ. Mỗi lượt 20 thẻ, học bao nhiêu tùy em nha!`}
   else{img='07_lo_dau';msg='Xong hết bài hôm nay rồi! Em đi chơi game hay nghỉ ngơi đi~';if(today().rev>0)setTimeout(()=>track('alldone'),0)}
-  const t=today();
+  const t=today(),G=dayGoal();
   app.innerHTML=`<div class="stack">
     <div class="top"><div><div class="muted" style="font-weight:800">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'numeric'})}</div><h1>Nihongo với Na</h1>${syncBadge()}</div><img src="${IMG('r_na')}" alt="Na" width="52" height="52" style="border-radius:50%"></div>
     <div class="hero"><img src="${IMG(img)}" alt="Sticker anh Nhân"><div class="bubble">${esc(msg)}</div></div>
     <div class="stats"><div class="stat"><b>${st}</b><span>ngày liền</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${t.rev}</b><span>thẻ hôm nay</span></div></div>
-    <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${t.rev}/${goalN()} thẻ</span></div>
-      ${tripBar(Math.min(100,Math.round(t.rev/goalN()*100)),[1,2,3,4].map(i=>({at:i*20,on:t.rev>=goalN()*i/5})),0)}
-      <p class="muted" style="margin:0;font-size:.88rem;font-weight:700">${t.rev>=goalN()?'Xong mục tiêu rồi! Ôn thêm là anh thưởng thêm sao nha':t.rev?`Còn ${goalN()-t.rev} thẻ nữa là tới chỗ anh`:'Ôn đủ thẻ là Na chạy tới chỗ anh nè'}</p></div>
+    <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${G.done}/${G.total} thẻ</span></div>
+      ${tripBar(G.pct,[1,2,3,4].map(i=>({at:i*20,on:G.pct>=i*20})),0)}
+      <p class="muted" style="margin:0;font-size:.88rem;font-weight:700">${G.left?`Còn ${[G.due?G.due+' thẻ đến hạn ôn':'',G.nLeft?G.nLeft+' thẻ mới đề xuất':''].filter(Boolean).join(' và ')} nữa là tới chỗ anh`:G.done?'Xong hết thẻ hôm nay rồi! Muốn học thêm thì cứ bấm, anh thưởng sao nha':'Hôm nay không có thẻ nào đến hạn, em nghỉ ngơi nha'}</p></div>
     <div class="card stack">
       <div class="row" style="justify-content:space-between"><h2>Ôn tập hôm nay</h2><span class="pill">${due} cần ôn · ${nl} mới</span></div>
       <button class="btn wide" id="start" ${due+nl?'':'disabled'}>${due+nl?'Bắt đầu ôn':'Hết thẻ rồi'}</button>
@@ -337,7 +337,7 @@ function vHome(){nav('home');
     <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.own[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
-  LOCAL.hello=true;saveLocal();tripGo($('.goalcard'),Math.min(100,Math.round(t.rev/goalN()*100)));
+  LOCAL.hello=true;saveLocal();tripGo($('.goalcard'),G.pct);
   checkStickers();setTimeout(showReveal,700);
   $('#start')&&($('#start').onclick=()=>go('review'));
   $('#extra')&&($('#extra').onclick=()=>{S.newPerDay=today().nw+5;touchSettings();save();go('review')});
@@ -455,7 +455,8 @@ function closeModal(){$('#modalRoot').innerHTML=''}
 
 /* ---------- thanh tiến trình: Na chạy tới chỗ anh, mỗi 5 thẻ một trái tim ---------- */
 let lastPct=0;
-const goalN=()=>LOCAL.goal||30;
+// mục tiêu hôm nay theo đường cong quên: thẻ đã ôn hôm nay + thẻ đang đến hạn + thẻ mới đề xuất (theo giới hạn nếu bật, không thì 1 lượt 20 thẻ)
+function dayGoal(){const t=today(),due=dueIds().length,nSug=S.newPerDay||BATCH;const nLeft=Math.min(Math.max(0,nSug-t.nw),newIds(nSug).length);const left=due+nLeft,total=t.rev+left;return {done:t.rev,left,total,due,nLeft,pct:total?Math.min(100,Math.round(t.rev/total*100)):100}}
 function tripBar(pct,marks,from){const f=from==null?pct:from;
   return `<div class="track"><div class="lane"><i class="fill" style="transform:scaleX(${f/100})"></i></div><div class="marks">${marks.map(m=>`<span class="mk${m.on?' on':''}" style="left:${m.at}%">♥</span>`).join('')}</div><span class="rwrap" style="transform:translateX(${f}%)"><img class="runner" src="${IMG('r_na')}" alt=""></span><img class="goal" src="${IMG('r_nhan')}" alt="Anh Nhân ở đích"></div>`}
 function tripGo(root,pct){if(!root)return;requestAnimationFrame(()=>requestAnimationFrame(()=>{const f=root.querySelector('.fill'),w=root.querySelector('.rwrap');if(f)f.style.transform=`scaleX(${pct/100})`;if(w)w.style.transform=`translateX(${pct}%)`;const rn=root.querySelector('.runner');if(rn){rn.classList.remove('hop');void rn.offsetWidth;rn.classList.add('hop')}}))}
@@ -539,7 +540,8 @@ let gradeLock=false;
 function grade(id,c,r,rec){if(gradeLock)return;gradeLock=true;const isNew=!S.cards[id];const t=today();
   let nc;if(rec){nc=rec[r].card}else{nc={due:new Date(Date.now()+(r===1?60000:r*86400000)),state:r===1?1:2,lapses:0,reps:1}}
   S.cards[id]=Object.assign({},nc,{deck:c.deck,due:nc.due.toISOString(),last_review:nc.last_review?new Date(nc.last_review).toISOString():new Date().toISOString(),lapses:nc.lapses||0,mod:Date.now()});
-  if(isNew)t.nw++;t.rev++;if(t.rev===goalN())setTimeout(()=>{toast('06_om_nhau',`Đủ mục tiêu ${goalN()} thẻ hôm nay rồi! Ôm em một cái nè~`,2600);rain(22)},500);if(r>1)t.ok++;S.stars+=r>1?1:0;markStudy();save();
+  if(isNew)t.nw++;t.rev++;if(r>1)t.ok++;S.stars+=r>1?1:0;markStudy();save();
+  if(LOCAL.goalDay!==dkey()&&dayGoal().left===0){LOCAL.goalDay=dkey();saveLocal();setTimeout(()=>{toast('06_om_nhau','Xong hết thẻ đề xuất hôm nay rồi! Ôm em một cái nè~',2600);rain(22)},500)}
   const gotS=checkStickers();if(gotS.length)setTimeout(()=>stkPing(gotS[0]),300);
   if(r===1){okStreak=0;track('forget');toast(Math.random()<.7?'n01_nhay':'05_vo_ve_an_ui',Math.random()<.7?pick(LINES.tease):pick(LINES.comfort))}
   else{okStreak++;track('combo',okStreak);if(okStreak===3||okStreak%6===0)toast(pick(['n03_ninh_na','g6_chu_v','g1_cuoi_vui']),pick(LINES.praise))}
@@ -604,7 +606,6 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   <div class="card stack"><h3>Cài đặt</h3>
     <div class="switch"><span><b>Giới hạn thẻ mới mỗi ngày</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Mỗi ngày học tối đa '+S.newPerDay+' thẻ mới':'Đang tắt: học bao nhiêu tùy em'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Giới hạn thẻ mới mỗi ngày"></button></div>
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}
-    <label class="field" for="gl">Mục tiêu mỗi ngày<select id="gl" style="font:inherit;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--surface);color:var(--ink)">${[10,20,30,50,80,100].map(n=>`<option value="${n}" ${n===goalN()?'selected':''}>${n} thẻ</option>`).join('')}</select></label>
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
   <div class="card stack" id="sound"></div>
@@ -615,7 +616,6 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   <p class="foot">${tot} thẻ đã gặp · Nét viết từ KanjiVG (CC BY-SA 3.0) · Thuật toán FSRS (ts-fsrs)</p></div>`;
   $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();vMe()};
   $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();vMe()});
-  $('#gl').onchange=e=>{LOCAL.goal=+e.target.value;saveLocal();toast('g1_cuoi_vui',`Ok, mỗi ngày ${LOCAL.goal} thẻ nha em!`)};
   $('#vt').onclick=()=>say('はじめまして。どうぞ　よろしく。');
   soundCard();remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
