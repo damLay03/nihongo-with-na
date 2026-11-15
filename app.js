@@ -65,6 +65,15 @@ async function fsSaveSpace(code,data){
 
 /* ---------- đồng bộ ---------- */
 let CODE=ls.get('nwn-code','');
+// Nhớ mã ở nhiều chỗ (localStorage, cookie, Cache Storage) để iPhone có dọn bớt thì vẫn còn
+function keepCode(code,ckey,role){const v=JSON.stringify({code,ckey,role});
+  try{document.cookie='nwn='+encodeURIComponent(v)+';max-age=315360000;path=/;SameSite=Lax'}catch(e){}
+  try{caches.open('nwn-keep').then(c=>c.put('keep.json',new Response(v)))}catch(e){}
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}}
+async function recoverCode(){if(CODE)return;let v=null;
+  try{const m=document.cookie.match(/(?:^|; )nwn=([^;]*)/);if(m)v=JSON.parse(decodeURIComponent(m[1]))}catch(e){}
+  if(!v)try{const r=await (await caches.open('nwn-keep')).match('keep.json');if(r)v=await r.json()}catch(e){}
+  if(v&&v.code){CODE=v.code;ls.set('nwn-code',v.code);ls.set('nwn-ckey',v.ckey);if(v.role){LOCAL.role=v.role;saveLocal()}}}
 let syncState={ok:false,at:0,busy:false,err:''};
 let pushT=null;
 function schedulePush(){if(!CODE)return;clearTimeout(pushT);pushT=setTimeout(sync,3000)}
@@ -249,7 +258,7 @@ function vWelcome(){$('.nav').hidden=true;
     const btn=$('#cgo');btn.disabled=true;btn.textContent='Đang kiểm tra…';
     try{const f=await fsGet('spaces/'+encodeURIComponent(code));
       if(!f){toast('n01_nhay','Mã này không đúng rồi nè~ Hỏi lại anh Nhân nha.');btn.disabled=false;btn.textContent='Mở app';return}
-      CODE=code;ls.set('nwn-code',code);ls.set('nwn-ckey',f.contentKey.stringValue);LOCAL.role=role;saveLocal();
+      CODE=code;ls.set('nwn-code',code);ls.set('nwn-ckey',f.contentKey.stringValue);LOCAL.role=role;saveLocal();keepCode(code,f.contentKey.stringValue,role);
       btn.textContent='Đang tải bài học…';await loadContent(true);await sync();
       toast('08_an_mung',role==='teacher'?'Chào thầy Nhân!':'Vào rồi! Học thôi em~');go(role==='teacher'?'teacher':'home');
     }catch(err){toast('na03_boi_roi','Không kết nối được, em kiểm tra mạng rồi thử lại nha.',3000);btn.disabled=false;btn.textContent='Mở app'}};
@@ -408,12 +417,24 @@ function renderCard(){
   shown=false;const isNew=!S.cards[id];
   const pct=Math.round(qi/Q.length*100);
   app.innerHTML=`<div class="rv"><div class="row" style="flex-wrap:nowrap"><button class="back" id="quit" aria-label="Dừng ôn">✕</button><div class="progress" aria-label="Tiến độ"><i style="width:${pct}%"></i></div><span class="pill">${Q.length-qi}</span></div>
-    <div class="card flash" id="fl">${front(c,isNew)}</div><div id="act"><button class="btn wide" id="show">Xem đáp án</button></div></div>`;
+    <div class="card flash" id="fl">${front(c,isNew)}<span class="swl">Quên</span><span class="swr">Được</span></div><p class="swhint">Chạm thẻ để lật · Vuốt trái: Quên · Vuốt phải: Được</p><div id="act"><button class="btn wide" id="show">Xem đáp án</button></div></div>`;
   $('#quit').onclick=()=>{sessionDeck=null;go('home')};
   $('#show').onclick=reveal;
+  bindSwipe($('#fl'));
   if(c.type==='kana')say(c.k.ch);
   if(!breakShown&&sessStart&&Date.now()-sessStart>20*60000){breakShown=true;toast('na04_met','Học 20 phút rồi, nghỉ 5 phút uống nước nha em!',3200)}
 }
+function bindSwipe(fl){let x0=0,y0=0,dx=0,drag=false,moved=false;
+  const hint=()=>{fl.classList.toggle('goL',dx<-40);fl.classList.toggle('goR',dx>40)};
+  fl.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag=true;moved=false;x0=e.clientX;y0=e.clientY;dx=0;fl.style.transition='none';fl.setPointerCapture(e.pointerId)});
+  fl.addEventListener('pointermove',e=>{if(!drag)return;dx=e.clientX-x0;const dy=e.clientY-y0;if(Math.abs(dx)>8)moved=true;if(Math.abs(dy)>Math.abs(dx)&&!moved)return;fl.style.transform=`translateX(${dx}px) rotate(${dx/18}deg)`;hint()});
+  const end=e=>{if(!drag)return;drag=false;fl.style.transition='transform .25s ease';
+    if(Math.abs(dx)>90){const r=dx<0?1:3;fl.style.transform=`translateX(${dx<0?-600:600}px) rotate(${dx<0?-25:25}deg)`;setTimeout(()=>swipeGrade(r),180);return}
+    fl.style.transform='';fl.classList.remove('goL','goR');
+    if(!moved&&!e.target.closest('button,ruby'))reveal()};
+  fl.addEventListener('pointerup',end);fl.addEventListener('pointercancel',end);
+}
+function swipeGrade(r){if(!shown)reveal();const b=$('.grade.g'+r);if(b)b.click()}
 function kindLabel(c){const d=deckOf(c.deck);return {kana:'Bảng chữ',vocab:'Từ vựng '+d.name,gram:'Ngữ pháp '+d.name,kanji:'Chữ Kanji · Unit '+d.no,kword:'Từ Kanji · Unit '+d.no}[c.type]}
 function front(c,isNew){const tag=`<div class="kind">${isNew?'Thẻ mới · ':''}${kindLabel(c)}</div>`;
   if(c.type==='kana')return tag+`<div class="big">${esc(c.k.ch)}</div><div class="sub">Chữ này đọc là gì?</div>`;
@@ -443,7 +464,7 @@ function reveal(){if(shown)return;shown=true;const id=Q[qi],c=byId(id),fl=$('#fl
   if(c.type==='kanji'){const k=c.kj;back=`<div class="big">${esc(k.k)}</div><div class="ans">${esc(k.hv)} · ${esc(k.mean)}</div><div class="sub jp">Kun: ${esc(k.kun||'–')}<br>On: ${esc(k.on||'–')}</div>`}
   if(c.type==='kword'){const hv=hanviet(plain(c.segs));back=`<div class="mid">${rubyHTML(c.segs,'show')}</div><div class="ans">${esc(c.vn)}</div><div class="sub">${hv?'Hán Việt: '+esc(hv):''}</div>${spk(reading(c.segs))}`;voice=reading(c.segs)}
   if(c.type==='gram'){const z=cloze(c);back=`<div class="sub" style="font-weight:800;color:var(--ink)">${esc(c.e.vn)}</div><div class="mid" style="font-size:1.45rem">${z.full||z.html}</div><div class="sub jp">${esc(c.g.title)}</div>${spk(reading(c.e.jp))}`;voice=reading(c.e.jp)}
-  fl.innerHTML=back;if(voice)say(voice);
+  fl.innerHTML=back+'<span class="swl">Quên</span><span class="swr">Được</span>';if(voice)say(voice);
   const card=cardOf(id);let labels=['','','',''];let rec=null;
   if(hasF){const now=new Date();rec=F.repeat(card,now);labels=[1,2,3,4].map(r=>ivl(rec[r].card.due-now))}
   $('#act').innerHTML=`<div class="grades">${['Quên','Khó','Được','Dễ'].map((l,i)=>`<button class="grade g${i+1}" data-r="${i+1}">${l}<small>${labels[i]}</small></button>`).join('')}</div>`;
@@ -527,7 +548,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
-  $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;['nwn-code','nwn-ckey','nwn-content',KEY].forEach(ls.del);CODE='';S=structuredClone(DEF);CONTENT={key:'',at:0,docs:{}};buildDecks();go('home')};
+  $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;['nwn-code','nwn-ckey','nwn-content',KEY].forEach(ls.del);try{document.cookie='nwn=;max-age=0;path=/';caches.delete('nwn-keep')}catch(e){}CODE='';S=structuredClone(DEF);CONTENT={key:'',at:0,docs:{}};buildDecks();go('home')};
 }
 
 /* ---------- nhắc học (Web Push) ---------- */
@@ -581,7 +602,7 @@ function vTeacher(){nav('me');
 
 /* ---------- khởi động ---------- */
 buildDecks();
-Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.json()).catch(()=>null))).then(async([k,h])=>{STROKES=k||{};HV=h||{};
+Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.json()).catch(()=>null)).concat([recoverCode()])).then(async([k,h])=>{STROKES=k||{};HV=h||{};if(CODE)keepCode(CODE,ls.get('nwn-ckey',''),LOCAL.role);
   if(!hasF)toast('na03_boi_roi','Chưa tải được thuật toán ôn tập, kiểm tra mạng rồi mở lại nha.',4000);
   route();
   if(CODE){try{const changed=!Object.keys(CONTENT.docs).length;await loadContent(false);if(changed)route(true)}catch(e){}sync()}
