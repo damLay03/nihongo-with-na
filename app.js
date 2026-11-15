@@ -19,12 +19,13 @@ const ICON={
   chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
+  gift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M2 9h20M12 9v12M12 9C10 5 6 4 6 7s4 2 6 2c2 0 6 1 6-2s-4-2-6 2"/></svg>',
   spk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>'
 };
 
 /* ---------- local state ---------- */
 const KEY='nwn-v1';
-const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0};
+const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0,stk:{}};
 let S=Object.assign(structuredClone(DEF),ls.get(KEY,{}));
 let LOCAL=Object.assign({hello:false,role:'student'},ls.get('nwn-local',{}));
 if(!LOCAL.dev){LOCAL.dev=Math.random().toString(36).slice(2,10);ls.set('nwn-local',LOCAL)}
@@ -93,6 +94,7 @@ function merge(a,b){
   (b.games||[]).forEach(g=>{const k=g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'');if(!seen.has(k)){seen.add(k);o.games.push(g)}});
   o.games.sort((x,y)=>(x.at||0)-(y.at||0));o.games=o.games.slice(-200);
   o.th=o.th||b.th;
+  o.stk=Object.assign({},b.stk||{},o.stk||{});for(const [k,v] of Object.entries(b.stk||{}))if(v<o.stk[k])o.stk[k]=v;
   o.push=Object.assign({},o.push||{});for(const [k,v] of Object.entries(b.push||{}))if(!o.push[k]||(v.at||0)>(o.push[k].at||0))o.push[k]=v;
   if((b.setAt||0)>(o.setAt||0)){o.unlocked=b.unlocked;o.newPerDay=b.newPerDay;o.pin=b.pin;o.setAt=b.setAt}
   return o;
@@ -235,7 +237,7 @@ function newIds(n,deck){
 
 /* ---------- router ---------- */
 const app=$('#app');
-const NAVS=[['home','Hôm nay','home'],['lessons','Bài học','book'],['games','Trò chơi','game'],['me','Tớ','me']];
+const NAVS=[['home','Hôm nay','home'],['lessons','Bài học','book'],['album','Sticker','gift'],['games','Trò chơi','game'],['me','Tớ','me']];
 const TNAVS=[['t-home','Tổng quan','chart'],['t-unlock','Mở bài','lock'],['t-lessons','Xem bài','book'],['t-set','Cài đặt','gear']];
 function nav(active){if(isT()){active={lessons:'t-lessons',home:'t-home',me:'t-set'}[active]||active;$('#nav').innerHTML=TNAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=false;return}
   $('#nav').innerHTML=NAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=!CODE}
@@ -249,7 +251,7 @@ function routeInner(soft){const h=(location.hash||'#home').slice(1);
     if(h==='t-unlock')tUnlock();else if(h==='t-lessons'||h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));else if(h==='t-set')tSettings();else tHome();
     if(soft)scrollTo(0,y);return}
   if(h==='home')vHome();else if(h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));
-  else if(h==='games')vGames();else if(h==='me')vMe();else if(h==='review')vReview();
+  else if(h==='games')vGames();else if(h==='album')vAlbum();else if(h==='me')vMe();else if(h==='review')vReview();
   else if(h==='game-match')gMatch();else if(h==='game-race')gRace();else vHome();
   if(soft)scrollTo(0,y);
 }
@@ -323,9 +325,11 @@ function vHome(){nav('home');
       ${due+nl?'':(newIds(1).length?'<button class="btn ghost wide" id="extra">Học thêm 5 thẻ mới</button>':'')}
       <p class="muted" style="margin:0;font-size:.88rem">Mỗi thẻ có 4 nút: Quên, Khó, Được, Dễ. App tự tính ngày ôn lại theo đường cong quên, giống Anki.</p>
     </div>
+    <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.stk[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ôn thêm để mở quà</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
   LOCAL.hello=true;saveLocal();
+  checkStickers();setTimeout(showReveal,700);
   $('#start')&&($('#start').onclick=()=>go('review'));
   $('#extra')&&($('#extra').onclick=()=>{S.newPerDay=today().nw+5;touchSettings();save();go('review')});
 }
@@ -513,6 +517,7 @@ function grade(id,c,r,rec){if(gradeLock)return;gradeLock=true;const isNew=!S.car
   let nc;if(rec){nc=rec[r].card}else{nc={due:new Date(Date.now()+(r===1?60000:r*86400000)),state:r===1?1:2,lapses:0,reps:1}}
   S.cards[id]=Object.assign({},nc,{deck:c.deck,due:nc.due.toISOString(),last_review:nc.last_review?new Date(nc.last_review).toISOString():new Date().toISOString(),lapses:nc.lapses||0,mod:Date.now()});
   if(isNew)t.nw++;t.rev++;if(r>1)t.ok++;S.stars+=r>1?1:0;markStudy();save();
+  const gotS=checkStickers();if(gotS.length)setTimeout(()=>stkPing(gotS[0]),300);
   if(r===1){okStreak=0;toast(Math.random()<.7?'n01_nhay':'05_vo_ve_an_ui',Math.random()<.7?pick(LINES.tease):pick(LINES.comfort))}
   else{okStreak++;if(okStreak===3||okStreak%6===0)toast(pick(['n03_ninh_na','g6_chu_v','g1_cuoi_vui']),pick(LINES.praise))}
   if(new Date(S.cards[id].due).getTime()-Date.now()<20*60000)Q.push(id);
@@ -524,7 +529,7 @@ function finish(){sessionStop();sessionDeck=null;const t=today();sync();
   app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('02_ban_tay_tim')}" alt=""><div class="bubble">Xong rồi! Hôm nay em ôn ${t.rev} thẻ, đúng ${t.ok}. Anh thương em nhiều lắm!</div></div>
   <div class="stats"><div class="stat"><b>${doneCount}</b><span>lượt vừa ôn</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div></div>
   ${dueIds().length||(newLeft()>0&&newIds(1).length)?'<button class="btn wide" id="more">Học tiếp</button>':''}<a class="btn ${dueIds().length||newIds(1).length?'ghost ':''}wide" href="#games">Chơi game thư giãn</a><a class="btn ghost wide" href="#home">Về trang chính</a></div>`;
-  $('#more')&&($('#more').onclick=()=>vReview());enterFx();rain(22)}
+  $('#more')&&($('#more').onclick=()=>vReview());enterFx();rain(22);checkStickers();setTimeout(showReveal,900)}
 
 /* ---------- game ---------- */
 function gamePool(){const p=[];
@@ -551,7 +556,7 @@ function vGames(){nav('games');const all=gamePool();
 function wrongToReview(id){const c=S.cards[id];if(c&&c.state===2){c.due=new Date().toISOString();c.mod=Date.now();save()}}
 function endGame(t,s,msg){const add=Math.max(1,Math.round(s/2));S.games.push({t,s,d:dkey(),at:Date.now()});S.stars+=add;markStudy();save();sync();
   app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG(pick(['08_an_mung','g6_chu_v']))}" alt=""><div class="bubble">${esc(msg)} Em được thêm ${add} ngôi sao!</div></div><button class="btn wide" id="again">Chơi lại</button><a class="btn ghost wide" href="#games">Chọn game khác</a></div>`;
-  $('#again').onclick=()=>route();enterFx();rain(14)}
+  $('#again').onclick=()=>route();enterFx();rain(14);checkStickers();setTimeout(showReveal,900)}
 function gMatch(){nav('games');const pool=shuffle(srcPool()).slice(0,6);if(pool.length<3)return go('games');
   const tiles=shuffle(pool.flatMap((p,i)=>[{i,txt:p.q,jp:true},{i,txt:p.a,jp:false}]));let open=[],done=0,moves=0,lock=false;const t0=Date.now();
   app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h2 style="flex:1">Lật hình ghép cặp</h2><span class="pill" id="mv">0 lượt</span></div><div class="mgrid" id="mg">${tiles.map((t,k)=>`<button class="mcard" data-k="${k}" aria-label="Thẻ úp">?</button>`).join('')}</div>`;
@@ -591,6 +596,70 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
   $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;logout();go('home')};
 }
+
+/* ---------- bộ sưu tập sticker ---------- */
+// Mỗi bộ có một thước đo; sticker trong bộ mở dần theo ngưỡng. Bộ chưa có ảnh hiện "Sắp ra mắt".
+const STK=[
+ {id:'p1',name:'Học sinh Nhật',m:'rev',goal:[10,25,50,80,120,170,230,300,400],items:[['1-03','Na giơ tay phát biểu'],['1-02','Anh ôm chồng sách'],['1-07','Anh ngại ngùng cố lên'],['1-06','Vẽ tim lên bảng'],['1-08','Na được điểm cao'],['1-04','Chung ô ngày mưa'],['1-05','Na ngủ gật, anh khoác áo'],['1-09','Ăn cơm nắm sau giờ học'],['1-01','Nắm tay cùng tới trường']]},
+ {id:'p2',name:'Lễ hội Yukata',m:'streak',goal:[1,2,3,4,5,6,7,10,14],items:[['2-02','Na ăn kẹo táo'],['2-03','Anh vớt được cá vàng'],['2-04','Na phe phẩy quạt'],['2-05','Anh mê takoyaki'],['2-09','Na đeo mặt nạ cáo'],['2-06','Cùng chắp tay ước'],['2-07','Đi lễ đền'],['2-10','Pháo bông que trên cầu'],['2-01','Ngắm pháo hoa cùng nhau']]},
+ {id:'p3',name:'Bếp ramen',m:'mast',goal:[10,20,35,50,70,100,130,160],items:[['3-03','Na nếm nước dùng'],['3-04','Anh làm cháy rồi…'],['3-08','Anh đeo găng lò'],['3-02','Anh kéo mì'],['3-05','Na nặn cơm nắm'],['3-07','Na bưng sushi'],['3-06','Anh đút Na ăn'],['3-01','Bát ramen của hai đứa']]},
+ {id:'p4',name:'Đồ ngủ thú',m:'rev',goal:[500,600,700,800,950,1100,1300,1500],items:[['4-05','Mèo xám dỗi'],['4-02','Thỏ Na nhảy cẫng'],['4-03','Mèo anh vẫy tay'],['4-04','Na ôm gối ngôi sao'],['4-08','Na uống ca cao'],['4-07','Hai đứa giận nhau'],['4-09','Anh đắp chăn cho Na'],['4-01','Cuộn chăn cùng nhau']]},
+ {id:'p5',name:'Phi hành gia',soon:'Mở 10 bài Minna'},
+ {id:'p6',name:'Hoàng tử và công chúa',soon:'Chuỗi 30 ngày liền'},
+ {id:'p7',name:'Mùa đông Tokyo',soon:'Thuộc 300 thẻ'},
+ {id:'p8',name:'Tốt nghiệp N5',soon:'Thuộc hết Bài 1 đến 25'}];
+const SIMG=f=>'img/s/'+f+'.webp';
+const MLAB={rev:['lượt ôn','Ôn thẻ'],streak:['ngày liền','Học liền mạch'],mast:['thẻ đã thuộc','Thuộc thẻ']};
+function metric(m){if(m==='rev')return Object.values(S.log).reduce((a,l)=>a+(l.rev||0),0);
+  if(m==='streak')return Math.max(S.streak.best||0,streakNow());
+  return Object.values(S.cards).filter(c=>c.state===2).length}
+const STK_ALL=STK.filter(p=>p.items).flatMap(p=>p.items.map((it,i)=>({id:it[0],cap:it[1],p,need:p.goal[i]})));
+const stkTotal=()=>STK_ALL.length,stkHave=()=>STK_ALL.filter(s=>S.stk[s.id]).length;
+// tìm sticker mới đạt, ghi vào S.stk và hàng chờ mở quà trên máy này
+function checkStickers(){if(isT()||!CODE)return [];const got=[];const mv={};
+  for(const s of STK_ALL){if(S.stk[s.id])continue;const v=mv[s.p.m]??(mv[s.p.m]=metric(s.p.m));if(v>=s.need){S.stk[s.id]=Date.now();got.push(s.id)}}
+  if(got.length){LOCAL.pend=(LOCAL.pend||[]).concat(got);LOCAL.fresh=(LOCAL.fresh||[]).concat(got);saveLocal();save()}
+  return got}
+// thông báo nhỏ khi đang ôn, không chặn tay
+function stkPing(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const el=document.createElement('div');el.className='stkping';el.innerHTML=`<img src="${SIMG(id)}" alt=""><span><b>Sticker mới!</b><br>Học xong mở quà nha</span>`;
+  el.addEventListener('animationend',e=>{if(e.animationName==='pingOut')el.remove()});document.body.appendChild(el)}
+// màn mở quà: hộp quà rung, chạm để lật ra sticker
+function showReveal(){const q=LOCAL.pend||[];if(!q.length||isT()||$('#gift'))return false;let i=0;const n=q.length;
+  const root=document.createElement('div');root.id='gift';root.className='gift';root.setAttribute('role','dialog');root.setAttribute('aria-label','Sticker mới');document.body.appendChild(root);
+  const step=()=>{const id=q[i],s=STK_ALL.find(x=>x.id===id);if(!s){next();return}
+    root.innerHTML=`<div class="gin"><p class="gt">${n>1?`Quà ${i+1}/${n}`:'Em có quà nè!'}</p>
+      <button class="gbox" id="gbox" aria-label="Mở quà"><span class="rays" aria-hidden="true"></span><span class="gface gfront"><span class="ribbon"></span><span class="bow">🎀</span><b>Chạm để mở</b></span><span class="gface gback"><img src="${SIMG(id)}" alt="${esc(s.cap)}"></span></button>
+      <div class="gcap"><b>${esc(s.cap)}</b><span>Bộ ${esc(s.p.name)} · ${STK_ALL.filter(x=>x.p===s.p&&S.stk[x.id]).length}/${s.p.items.length}</span></div>
+      <button class="btn wide gnext" id="gnext">${i<n-1?'Mở quà tiếp':'Cất vào bộ sưu tập'}</button></div>`;
+    const b=$('#gbox');let opened=false;const im=new Image();im.src=SIMG(id);
+    const open=()=>{if(opened)return;opened=true;root.classList.add('opened');const [x,y]=mid(b);setTimeout(()=>{burst(x,y,16,'♥★✿♥');rain(26)},260)};
+    b.onclick=open;$('#gnext').onclick=()=>{if(!opened)return open();next()};root.classList.remove('opened');
+  };
+  const next=()=>{i++;if(i<n)step();else{LOCAL.pend=[];saveLocal();root.classList.add('bye');setTimeout(()=>root.remove(),250);if(location.hash!=='#album')go('album')}};
+  step();return true}
+function vAlbum(){nav('album');const fresh=new Set(LOCAL.fresh||[]);
+  const packs=STK.map((p,pi)=>{
+    if(p.soon)return `<div class="card pack soon"><div class="row" style="justify-content:space-between"><h3>${esc(p.name)}</h3><span class="pill">Sắp ra mắt</span></div><div class="sgrid">${'<div class="scell q">?</div>'.repeat(3)}</div><p class="muted" style="margin:0;font-size:.85rem">Điều kiện mở: ${esc(p.soon)}</p></div>`;
+    const v=metric(p.m),have=p.items.filter(it=>S.stk[it[0]]).length,nx=p.goal.find((g,i)=>!S.stk[p.items[i][0]]);
+    const pr=nx==null?100:Math.round(Math.min(1,v/nx)*100);
+    const hint=nx==null?'Đủ bộ rồi! Giỏi quá đi':`Còn ${nx-v} ${MLAB[p.m][0]} nữa là có sticker tiếp theo`;
+    return `<div class="card pack stack"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted" style="font-size:.82rem;font-weight:700">${MLAB[p.m][1]} · đang có ${v} ${MLAB[p.m][0]}</span></span><span class="pill">${have}/${p.items.length}</span></div>
+      <div class="sgrid">${p.items.map((it,i)=>S.stk[it[0]]?`<button class="scell${fresh.has(it[0])?' new':''}" data-st="${it[0]}" style="--i:${i}" aria-label="${esc(it[1])}"><img src="${SIMG(it[0])}" alt="" loading="lazy"></button>`:`<div class="scell lock" style="--i:${i}"><img src="${SIMG(it[0])}" alt="" loading="lazy"><small>${p.goal[i]}</small></div>`).join('')}</div>
+      <div><div class="bar"><i style="width:${pr}%"></i></div><p class="muted" style="margin:6px 0 0;font-size:.85rem;font-weight:700">${hint}</p></div></div>`}).join('');
+  app.innerHTML=`<div class="stack"><div class="top"><div><h1>Bộ sưu tập</h1><div class="muted" style="font-weight:800">${stkHave()}/${stkTotal()} sticker · học càng nhiều càng mở nhiều</div></div><img src="${IMG('02_ban_tay_tim')}" alt="" width="64" height="64" class="floaty"></div>${packs}</div>`;
+  app.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>stickerSheet(b.dataset.st));
+  if(fresh.size){LOCAL.fresh=[];saveLocal()}
+  setTimeout(showReveal,350)}
+function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const d=new Date(S.stk[id]);
+  openSheet(s.cap,`<div class="row" style="justify-content:space-between"><h2>${esc(s.cap)}</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+   <img class="sbig" src="${SIMG(id)}" alt="${esc(s.cap)}">
+   <p class="muted" style="margin:0;text-align:center;font-weight:700">Bộ ${esc(s.p.name)} · nhận ngày ${d.toLocaleDateString('vi-VN')}</p>
+   <button class="btn wide" id="shr">Lưu / chia sẻ sticker</button>`);
+  const img=$('.sbig');img.onclick=()=>{const [x,y]=mid(img);burst(x,y,10);img.classList.remove('jump');void img.offsetWidth;img.classList.add('jump')};
+  $('#shr').onclick=async()=>{try{const bl=await (await fetch(SIMG(id))).blob();
+      const png=await new Promise(r=>{const c=document.createElement('canvas'),im=new Image();im.onload=()=>{c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);c.toBlob(r,'image/png')};im.src=URL.createObjectURL(bl)});
+      const f=new File([png],'sticker-'+id+'.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}}catch(e){}}}
 
 /* ---------- nhắc học (Web Push) ---------- */
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
@@ -635,7 +704,7 @@ function tHome(){nav('t-home');
   <div class="card stack"><h3>Na hay quên nhất</h3>${hard.length?hard.map(([id,c])=>`<div class="switch"><span class="jp" style="min-width:0">${esc(cardLabel(id))}</span><span class="pill">quên ${c.lapses} lần</span></div>`).join(''):'<p class="muted" style="margin:0">Chưa có từ nào bị quên.</p>'}</div>
   <div class="card stack"><h3>Game gần đây</h3>${S.games.slice(-5).reverse().map(g=>`<div class="switch"><span>${g.t==='match'?'Ghép cặp':'Đua 60 giây'} · ${g.d}</span><b>${g.s} điểm</b></div>`).join('')||'<p class="muted" style="margin:0">Chưa chơi game nào.</p>'}</div>
   <button class="btn ghost wide" id="rf">Làm mới số liệu</button>
-  <p class="foot">${seen} thẻ Na đã gặp · ${S.stars} ngôi sao</p></div>`;
+  <p class="foot">${seen} thẻ Na đã gặp · ${S.stars} ngôi sao · ${stkHave()}/${stkTotal()} sticker</p></div>`;
   $('#rf').onclick=async()=>{await sync();route(true);toast('n02_nghiem_tuc','Đã cập nhật.')};
 }
 function tUnlock(){nav('t-unlock');
