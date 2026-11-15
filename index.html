@@ -154,6 +154,10 @@ ruby.hide rt{visibility:hidden}
 .conv .who{font-family:var(--f-jp);font-weight:800;color:var(--pink-deep);font-size:.9rem;padding-top:6px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* full version additions */
+/* giao diện giáo viên: tông xanh dương, khác hẳn bên học sinh */
+:root[data-role="teacher"]{--bg:#F1F5FC;--surface:#FFFFFF;--surface2:#E2EAF8;--line:#CCD9EE;--ink:#1E2B45;--muted:#5D6B86;--pink:#3F7BE0;--pink-deep:#2557B5;--peach:#7FB2F0;--cream:#F5F8FE;--shadow:0 3px 0 #C9D6EC}
+@media (prefers-color-scheme: dark){:root[data-role="teacher"]:not([data-theme="light"]){--bg:#141B29;--surface:#1D2738;--surface2:#283650;--line:#33445F;--ink:#E7EEFA;--muted:#9FB0CC;--pink:#6E9CF0;--pink-deep:#9BBCF6;--peach:#6E9CF0;--cream:#1A2333;--on-accent:#0E1522;--shadow:0 3px 0 #0C111B}}
+:root[data-role="teacher"][data-theme="dark"]{--bg:#141B29;--surface:#1D2738;--surface2:#283650;--line:#33445F;--ink:#E7EEFA;--muted:#9FB0CC;--pink:#6E9CF0;--pink-deep:#9BBCF6;--peach:#6E9CF0;--cream:#1A2333;--on-accent:#0E1522;--shadow:0 3px 0 #0C111B}
 .flash{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer;overflow:hidden}
 .flash .swl,.flash .swr{position:absolute;top:14px;padding:4px 12px;border-radius:10px;font-weight:900;color:var(--on-accent);opacity:0;transition:opacity .15s}
 .flash .swl{left:14px;background:var(--again)}.flash .swr{right:14px;background:var(--good)}

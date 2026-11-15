@@ -16,6 +16,9 @@ const ICON={
   book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6"/></svg>',
   game:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3M15 12h.01M18 13h.01"/></svg>',
   me:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-9.2-8.6C1.2 9.2 3 5 6.8 5c2.2 0 3.6 1.2 5.2 3 1.6-1.8 3-3 5.2-3C21 5 22.8 9.2 21.2 12.4 19 16.6 12 21 12 21z"/></svg>',
+  chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
   spk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>'
 };
 
@@ -66,14 +69,14 @@ async function fsSaveSpace(code,data){
 /* ---------- đồng bộ ---------- */
 let CODE=ls.get('nwn-code','');
 // Nhớ mã ở nhiều chỗ (localStorage, cookie, Cache Storage) để iPhone có dọn bớt thì vẫn còn
-function keepCode(code,ckey,role){const v=JSON.stringify({code,ckey,role});
+function keepCode(code,ckey,role,tcode){const v=JSON.stringify({code,ckey,role,tcode:tcode||''});
   try{document.cookie='nwn='+encodeURIComponent(v)+';max-age=315360000;path=/;SameSite=Lax'}catch(e){}
   try{caches.open('nwn-keep').then(c=>c.put('keep.json',new Response(v)))}catch(e){}
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}}
 async function recoverCode(){if(CODE)return;let v=null;
   try{const m=document.cookie.match(/(?:^|; )nwn=([^;]*)/);if(m)v=JSON.parse(decodeURIComponent(m[1]))}catch(e){}
   if(!v)try{const r=await (await caches.open('nwn-keep')).match('keep.json');if(r)v=await r.json()}catch(e){}
-  if(v&&v.code){CODE=v.code;ls.set('nwn-code',v.code);ls.set('nwn-ckey',v.ckey);if(v.role){LOCAL.role=v.role;saveLocal()}}}
+  if(v&&v.code){CODE=v.code;ls.set('nwn-code',v.code);ls.set('nwn-ckey',v.ckey);if(v.tcode)ls.set('nwn-tcode',v.tcode);if(v.role){LOCAL.role=v.role;saveLocal()}}}
 let syncState={ok:false,at:0,busy:false,err:''};
 let pushT=null;
 function schedulePush(){if(!CODE)return;clearTimeout(pushT);pushT=setTimeout(sync,3000)}
@@ -89,6 +92,7 @@ function merge(a,b){
   const seen=new Set(o.games.map(g=>g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'')));
   (b.games||[]).forEach(g=>{const k=g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'');if(!seen.has(k)){seen.add(k);o.games.push(g)}});
   o.games.sort((x,y)=>(x.at||0)-(y.at||0));o.games=o.games.slice(-200);
+  o.th=o.th||b.th;
   o.push=Object.assign({},o.push||{});for(const [k,v] of Object.entries(b.push||{}))if(!o.push[k]||(v.at||0)>(o.push[k].at||0))o.push[k]=v;
   if((b.setAt||0)>(o.setAt||0)){o.unlocked=b.unlocked;o.newPerDay=b.newPerDay;o.pin=b.pin;o.setAt=b.setAt}
   return o;
@@ -168,7 +172,9 @@ function buildDecks(){
 const deckOf=id=>DECKS.find(d=>d.id===id);
 const deckCards=id=>[...CARDS.values()].filter(c=>c.deck===id);
 const byId=id=>CARDS.get(id);
-function available(d){return d&&!d.missing&&!!S.unlocked[d.id]}
+const isT=()=>LOCAL.role==='teacher'&&!!ls.get('nwn-tcode','');
+function available(d){return d&&!d.missing&&(!!S.unlocked[d.id]||isT())}
+function unlockedForNa(d){return d&&!d.missing&&!!S.unlocked[d.id]}
 
 /* ---------- chữ Nhật ---------- */
 function okuri(kanji,kana){
@@ -213,7 +219,7 @@ function streakNow(){const st=S.streak;const y=new Date();y.setDate(y.getDate()-
 function missedYesterday(){const st=S.streak;if(!st.last)return false;const y=new Date();y.setDate(y.getDate()-1);return st.last!==dkey()&&st.last!==dkey(y)}
 
 /* ---------- hàng đợi ôn ---------- */
-function unlockedDecks(){return DECKS.filter(available)}
+function unlockedDecks(){return DECKS.filter(unlockedForNa)}
 function dueIds(){const now=Date.now(),ok=new Set(unlockedDecks().map(d=>d.id));return Object.entries(S.cards).filter(([id,c])=>ok.has(c.deck)&&CARDS.has(id)&&new Date(c.due).getTime()<=now).sort((a,b)=>new Date(a[1].due)-new Date(b[1].due)).map(x=>x[0])}
 function newLeft(){return S.newPerDay?Math.max(0,S.newPerDay-today().nw):Infinity} // 0 = không giới hạn
 const BATCH=20; // một lượt học tối đa 20 thẻ mới, học xong bấm Học tiếp
@@ -229,13 +235,19 @@ function newIds(n,deck){
 /* ---------- router ---------- */
 const app=$('#app');
 const NAVS=[['home','Hôm nay','home'],['lessons','Bài học','book'],['games','Trò chơi','game'],['me','Tớ','me']];
-function nav(active){$('#nav').innerHTML=NAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=!CODE}
+const TNAVS=[['t-home','Tổng quan','chart'],['t-unlock','Mở bài','lock'],['t-lessons','Xem bài','book'],['t-set','Cài đặt','gear']];
+function nav(active){if(isT()){active={lessons:'t-lessons',home:'t-home',me:'t-set'}[active]||active;$('#nav').innerHTML=TNAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=false;return}
+  $('#nav').innerHTML=NAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=!CODE}
 function route(soft){const h=(location.hash||'#home').slice(1);
   if(!CODE)return vWelcome();
   if(!soft){sessionStop();closeModal()}
   const y=soft?scrollY:0;
+  document.documentElement.dataset.role=isT()?'teacher':'student';
+  if(isT()){
+    if(h==='t-unlock')tUnlock();else if(h==='t-lessons'||h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));else if(h==='t-set')tSettings();else tHome();
+    if(soft)scrollTo(0,y);return}
   if(h==='home')vHome();else if(h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));
-  else if(h==='games')vGames();else if(h==='me')vMe();else if(h==='teacher')vTeacher();else if(h==='review')vReview();
+  else if(h==='games')vGames();else if(h==='me')vMe();else if(h==='review')vReview();
   else if(h==='game-match')gMatch();else if(h==='game-race')gRace();else vHome();
   if(soft)scrollTo(0,y);
 }
@@ -243,25 +255,28 @@ addEventListener('hashchange',()=>route());
 const go=h=>{if(location.hash==='#'+h)route();else location.hash=h};
 
 /* ---------- màn chào: nhập mã ---------- */
-function vWelcome(){$('.nav').hidden=true;
-  let role=LOCAL.role||'student';
+async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function vWelcome(){$('.nav').hidden=true;document.documentElement.dataset.role='student';
   app.innerHTML=`<div class="stack" style="padding-top:16px">
-    <div class="hero"><img src="${IMG('01_vui_bat_ngo')}" alt="Anh Nhân và Na"><div class="bubble">Chào mừng tới Nihongo với Na! Nhập mã của hai đứa mình để mở bài học nha.</div></div>
+    <div class="hero"><img src="${IMG('01_vui_bat_ngo')}" alt="Anh Nhân và Na"><div class="bubble">Chào mừng tới Nihongo với Na! Nhập mã để mở bài học nha.</div></div>
     <form id="cf" class="card stack">
-      <label class="field" for="code">Mã học<input id="code" class="codein" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="na-xxxx-xxxx-xxxx" required></label>
-      <div class="seg" role="group" aria-label="Ai đang dùng máy này"><button type="button" data-role="student" aria-pressed="${role==='student'}">Em là Na</button><button type="button" data-role="teacher" aria-pressed="${role==='teacher'}">Anh là giáo viên</button></div>
+      <label class="field" for="code">Mã<input id="code" class="codein" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="na-xxxx-xxxx-xxxx" required></label>
       <button class="btn wide" id="cgo">Mở app</button>
-      <p class="muted" style="margin:0;font-size:.85rem">Mã do anh Nhân giữ. Một mã dùng chung cho cả hai máy: tiến độ của Na tự đồng bộ để anh xem được.</p>
+      <p class="muted" style="margin:0;font-size:.85rem">Mã do anh Nhân đưa. Nhập một lần, app sẽ nhớ.</p>
     </form></div>`;
-  app.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{role=b.dataset.role;app.querySelectorAll('[data-role]').forEach(x=>x.setAttribute('aria-pressed',x===b))});
-  $('#cf').onsubmit=async e=>{e.preventDefault();const code=$('#code').value.trim().toLowerCase();if(code.length<12)return toast('na03_boi_roi','Mã chưa đủ dài, em xem lại nha.');
-    const btn=$('#cgo');btn.disabled=true;btn.textContent='Đang kiểm tra…';
+  $('#cf').onsubmit=async e=>{e.preventDefault();const raw=$('#code').value.trim().toLowerCase().replace(/\s+/g,'');if(raw.length<12)return toast('na03_boi_roi','Mã chưa đủ dài, xem lại nha.');
+    const btn=$('#cgo');const fail=(img,msg)=>{toast(img,msg,3000);btn.disabled=false;btn.textContent='Mở app'};btn.disabled=true;btn.textContent='Đang kiểm tra…';
+    const teacher=raw.startsWith('gv-');const parts=raw.split('-');
+    const code=teacher?'na-'+parts.slice(1,4).join('-'):raw;
     try{const f=await fsGet('spaces/'+encodeURIComponent(code));
-      if(!f){toast('n01_nhay','Mã này không đúng rồi nè~ Hỏi lại anh Nhân nha.');btn.disabled=false;btn.textContent='Mở app';return}
-      CODE=code;ls.set('nwn-code',code);ls.set('nwn-ckey',f.contentKey.stringValue);LOCAL.role=role;saveLocal();keepCode(code,f.contentKey.stringValue,role);
+      if(!f)return fail('n01_nhay','Mã này không đúng rồi nè~');
+      if(teacher){const d=JSON.parse(f.data.stringValue||'{}');if(!d.th||d.th!==await sha(raw))return fail('n02_nghiem_tuc','Mã giáo viên không đúng.');ls.set('nwn-tcode',raw)}
+      else ls.del('nwn-tcode');
+      const role=teacher?'teacher':'student';
+      CODE=code;ls.set('nwn-code',code);ls.set('nwn-ckey',f.contentKey.stringValue);LOCAL.role=role;saveLocal();keepCode(code,f.contentKey.stringValue,role,teacher?raw:'');
       btn.textContent='Đang tải bài học…';await loadContent(true);await sync();
-      toast('08_an_mung',role==='teacher'?'Chào thầy Nhân!':'Vào rồi! Học thôi em~');go(role==='teacher'?'teacher':'home');
-    }catch(err){toast('na03_boi_roi','Không kết nối được, em kiểm tra mạng rồi thử lại nha.',3000);btn.disabled=false;btn.textContent='Mở app'}};
+      toast(teacher?'n02_nghiem_tuc':'08_an_mung',teacher?'Chào thầy Nhân!':'Vào rồi! Học thôi em~');go(teacher?'t-home':'home');
+    }catch(err){fail('na03_boi_roi','Không kết nối được, kiểm tra mạng rồi thử lại nha.')}};
 }
 
 /* ---------- trang chủ ---------- */
@@ -295,14 +310,14 @@ function vHome(){nav('home');
 /* ---------- danh sách bài ---------- */
 function deckProgress(id){const cs=deckCards(id);if(!cs.length)return 0;return cs.filter(c=>S.cards[c.id]&&S.cards[c.id].state===2).length/cs.length}
 function vLessons(){nav('lessons');
-  app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('na01_hoc_bai')}" alt="Na học bài"><div class="bubble">Bài nào anh mở khóa thì bài đó vào ôn tập. Anh mở bài sau khi dạy trên lớp nha.</div></div>
+  app.innerHTML=`<div class="stack">${isT()?tTop('Xem bài','Xem trước nội dung để dạy Na'):`<div class="hero"><img src="${IMG('na01_hoc_bai')}" alt="Na học bài"><div class="bubble">Bài nào anh mở khóa thì bài đó vào ôn tập. Anh mở bài sau khi dạy trên lớp nha.</div></div>`}
   <div><div class="ksec">Bảng chữ cái</div>${DECKS.filter(d=>d.kind==='kana').map(lessonRow).join('')}
   <div class="ksec">Minna no Nihongo N5</div>${DECKS.filter(d=>d.kind==='minna').map(lessonRow).join('')}
   <div class="ksec">Kanji N5</div>${DECKS.filter(d=>d.kind==='kanji').map(lessonRow).join('')}</div></div>`;
   app.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>go('lesson-'+b.dataset.open));
 }
 function lessonRow(d){const open=available(d);const p=Math.round(deckProgress(d.id)*100);
-  return `<button class="card lesson ${open?'':'locked'}" ${open?`data-open="${d.id}"`:'disabled'} style="margin-bottom:10px"><span class="ic">${esc(d.jp)}</span><span style="min-width:0"><h3>${esc(d.name)}</h3><span class="muted jp" style="font-size:.85rem">${esc(open?d.sub:(d.missing?d.sub:'Chờ anh mở khóa'))}</span>${open?`<div class="bar"><i style="width:${p}%"></i></div>`:''}</span><span aria-hidden="true">${open?'›':'🔒'}</span></button>`}
+  return `<button class="card lesson ${open?'':'locked'}" ${open?`data-open="${d.id}"`:'disabled'} style="margin-bottom:10px"><span class="ic">${esc(d.jp)}</span><span style="min-width:0"><h3>${esc(d.name)}${isT()&&!d.missing?` <span class="pill" style="font-size:.72rem">${S.unlocked[d.id]?'Na: đang mở':'Na: đang khóa'}</span>`:''}</h3><span class="muted jp" style="font-size:.85rem">${esc(open?d.sub:(d.missing?d.sub:'Chờ anh mở khóa'))}</span>${open?`<div class="bar"><i style="width:${p}%"></i></div>`:''}</span><span aria-hidden="true">${open?'›':'🔒'}</span></button>`}
 
 /* ---------- một bài ---------- */
 let lessonTab='vocab';
@@ -317,9 +332,9 @@ function vLesson(id){nav('lessons');const d=deckOf(id);if(!available(d))return g
   <p style="margin:0 0 12px">${esc(B.titleVN)}. ${esc(B.sub)}.</p>
   <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${lessonTab===k}" data-t="${k}">${l}</button>`).join('')}</div>
   <div id="lbody" class="stack"></div>
-  <div class="row" style="margin-top:14px"><button class="btn wide" id="learnNew">Học thẻ mới của bài này</button></div>`;
+  ${isT()?'':'<div class="row" style="margin-top:14px"><button class="btn wide" id="learnNew">Học thẻ mới của bài này</button></div>'}`;
   app.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{lessonTab=b.dataset.t;vLesson(id)});
-  $('#learnNew').onclick=()=>{sessionDeck=id;go('review')};
+  $('#learnNew')&&($('#learnNew').onclick=()=>{sessionDeck=id;go('review')});
   const L=$('#lbody');
   if(lessonTab==='vocab')L.innerHTML=B.vocab.map(g=>`<div class="card"><h3>${esc(g.title)}</h3>${g.tip?`<div style="margin:10px 0">${tipHTML(g.tip)}</div>`:''}
     ${g.words.map(w=>{const hv=hanviet(w.kanji);return `<div class="word"><div style="min-width:0"><div class="w">${rubyHTML(wordSegs(w))}</div><div class="m">${esc(w.vn)}</div><div class="muted" style="font-size:.8rem">${esc(w.ro)}${hv?' · Hán Việt: '+esc(hv):''}</div></div>${spk(w.kana)}</div>`}).join('')}</div>`).join('')
@@ -336,9 +351,9 @@ function vKanjiUnit(d){const U=lessonDoc(d);
   app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><div style="flex:1;min-width:0"><div class="muted" style="font-weight:800">${d.name} · học cùng Bài ${U.minna}</div><h1>${esc(U.titleVN)}</h1></div></div>
   <p class="muted" style="margin:0 0 12px;font-weight:700">Bấm vào chữ để xem nghĩa, cách đọc, thứ tự nét và tập viết.</p>
   <div class="kgrid kj">${U.kanji.map((k,i)=>{const s=S.cards[`${d.id}:c:${i}`];return `<button class="kcell" data-i="${i}">${esc(k.k)}<small>${esc(k.hv)}</small>${s&&s.state===2?'<i class="dot" aria-label="đã thuộc"></i>':''}</button>`}).join('')}</div>
-  <button class="btn wide" id="learnNew" style="margin-top:16px">Học thẻ mới của unit này</button>`;
+  ${isT()?'':'<button class="btn wide" id="learnNew" style="margin-top:16px">Học thẻ mới của unit này</button>'}`;
   app.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>kanjiModal(U.kanji[+b.dataset.i]));
-  $('#learnNew').onclick=()=>{sessionDeck=d.id;go('review')};
+  $('#learnNew')&&($('#learnNew').onclick=()=>{sessionDeck=d.id;go('review')});
 }
 
 function vKana(id){const isK=id==='kata';
@@ -351,10 +366,10 @@ function vKana(id){const isK=id==='kata';
   <div class="ksec">Âm cơ bản</div><div class="kgrid">${basic}</div>
   <div class="ksec">Âm đục, âm bán đục</div><div class="kgrid">${dak}</div>
   <div class="ksec">Âm ghép</div><div class="kgrid k3">${yo}</div>
-  <button class="btn wide" id="learnNew" style="margin-top:16px">Học thẻ mới bảng ${isK?'Katakana':'Hiragana'}</button>
+  ${isT()?'':`<button class="btn wide" id="learnNew" style="margin-top:16px">Học thẻ mới bảng ${isK?'Katakana':'Hiragana'}</button>`}
   <p class="foot">Dữ liệu nét viết: KanjiVG (CC BY-SA 3.0)</p>`;
   app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>kanaModal(b.dataset.k));
-  $('#learnNew').onclick=()=>{sessionDeck=id;go('review')};
+  $('#learnNew')&&($('#learnNew').onclick=()=>{sessionDeck=id;go('review')});
 }
 
 /* ---------- bảng tô nét ---------- */
@@ -376,7 +391,7 @@ function bindTrace(paths){
   cv.onpointerup=cv.onpointercancel=()=>{drawing=false};
   $('#clr').onclick=()=>{ctx.clearRect(0,0,cv.width,cv.height);strokes=0};
   $('#chk').onclick=()=>{if(!strokes)return toast('n02_nghiem_tuc','Tô thử đi em, anh đang chờ nè!');
-    if(strokes===paths.length){S.stars+=1;save();toast('n03_ninh_na',`Đúng ${paths.length} nét luôn! ${pick(LINES.praise)}`)}
+    if(strokes===paths.length){if(!isT()){S.stars+=1;save()};toast('n03_ninh_na',`Đúng ${paths.length} nét luôn! ${pick(LINES.praise)}`)}
     else toast('n01_nhay',`Em viết ${strokes} nét, chữ này có ${paths.length} nét nha~ Xem lại thứ tự nét nè.`,2600)};
 }
 function kanaModal(ch){
@@ -540,7 +555,6 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   <div class="card stack"><h3>Đồng bộ</h3><p class="muted" style="margin:0;font-size:.9rem">Tiến độ tự lưu lên mạng bằng mã học. Mất mạng vẫn học được, có mạng lại thì app tự gửi lên.</p>
     <div class="row"><button class="btn ghost" id="sn">Đồng bộ ngay</button><button class="btn ghost" id="rc">Tải lại bài học</button></div>
     <button class="btn ghost" id="lo">Thoát mã trên máy này</button></div>
-  <a class="card lesson" href="#teacher" style="text-decoration:none;color:inherit"><img src="${IMG('r_nhan')}" alt="" width="52" height="52" style="border-radius:50%"><span><h3>Trang giáo viên</h3><span class="muted" style="font-size:.85rem">Dành cho anh Nhân: mở bài, xem tiến độ</span></span><span>›</span></a>
   <p class="foot">${tot} thẻ đã gặp · Nét viết từ KanjiVG (CC BY-SA 3.0) · Thuật toán FSRS (ts-fsrs)</p></div>`;
   $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();vMe()};
   $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();vMe()});
@@ -548,7 +562,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
-  $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;['nwn-code','nwn-ckey','nwn-content',KEY].forEach(ls.del);try{document.cookie='nwn=;max-age=0;path=/';caches.delete('nwn-keep')}catch(e){}CODE='';S=structuredClone(DEF);CONTENT={key:'',at:0,docs:{}};buildDecks();go('home')};
+  $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;logout();go('home')};
 }
 
 /* ---------- nhắc học (Web Push) ---------- */
@@ -572,42 +586,61 @@ function remindCard(){const el=$('#remind');if(!el)return;const me=(S.push||{})[
       toast('n06_nhac_gio',`Ok! ${$('#rh').value} giờ mỗi ngày anh nhắc em nha~`,2600);remindCard()}
     catch(e){toast('na03_boi_roi','Chưa bật được thông báo trên máy này.',3000)}};
 }
-let teacherOK=false;
-function vTeacher(){nav('me');
-  if(!teacherOK&&LOCAL.role!=='teacher'){app.innerHTML=`<div class="stack"><div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h1 style="flex:1">Trang giáo viên</h1></div>
-    <div class="hero"><img src="${IMG('n02_nghiem_tuc')}" alt=""><div class="bubble">Chỗ này của anh Nhân nha. Nhập mã giáo viên đi.</div></div>
-    <form id="pf" class="stack"><label class="field" for="pin">Mã giáo viên<input id="pin" inputmode="numeric" autocomplete="off"></label><button class="btn">Vào</button></form></div>`;
-    $('#pf').onsubmit=e=>{e.preventDefault();if($('#pin').value===S.pin){teacherOK=true;vTeacher()}else toast('n01_nhay','Sai mã rồi nè~')};return}
+function logout(){['nwn-code','nwn-ckey','nwn-content','nwn-tcode',KEY].forEach(ls.del);try{document.cookie='nwn=;max-age=0;path=/';caches.delete('nwn-keep')}catch(e){}CODE='';LOCAL.role='student';saveLocal();S=structuredClone(DEF);CONTENT={key:'',at:0,docs:{}};buildDecks()}
+
+/* ---------- giao diện giáo viên ---------- */
+function tTop(title,sub){return `<div class="top"><div style="min-width:0"><div class="muted" style="font-weight:800">${esc(sub)}</div><h1>${esc(title)}</h1>${syncBadge()}</div><img src="${IMG('r_nhan')}" alt="Thầy Nhân" width="52" height="52" style="border-radius:50%"></div>`}
+function cardLabel(id){const c=byId(id);if(!c)return id;if(c.type==='kana')return c.k.ch+' ('+c.k.ro+')';if(c.type==='vocab')return (c.w.kanji||c.w.kana)+' · '+c.w.vn;if(c.type==='kanji')return c.kj.k+' · '+c.kj.hv;if(c.type==='kword')return plain(c.segs)+' · '+c.vn;return plain(c.e.jp)}
+function ago(ms){if(!ms)return 'chưa học lần nào';const m=(Date.now()-ms)/60000;if(m<2)return 'vừa xong';if(m<60)return Math.round(m)+' phút trước';const h=m/60;if(h<24)return Math.round(h)+' giờ trước';return Math.round(h/24)+' ngày trước'}
+function tHome(){nav('t-home');
   const days=[...Array(14)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);const l=S.log[dkey(d)];return {k:dkey(d),m:l?Math.round(l.secs/60):0,r:l?l.rev:0}});const mx=Math.max(1,...days.map(d=>d.r));
+  const all=Object.values(S.cards),seen=all.length,known=all.filter(c=>c.state===2).length,due=dueIds().length;
+  const last=Math.max(0,...all.map(cardMod));
   const hard=Object.entries(S.cards).filter(([id,c])=>c.lapses>0&&CARDS.has(id)).sort((a,b)=>b[1].lapses-a[1].lapses).slice(0,10);
-  const label=id=>{const c=byId(id);if(!c)return id;if(c.type==='kana')return c.k.ch+' ('+c.k.ro+')';if(c.type==='vocab')return (c.w.kanji||c.w.kana)+' · '+c.w.vn;if(c.type==='kanji')return c.kj.k+' · '+c.kj.hv;if(c.type==='kword')return plain(c.segs)+' · '+c.vn;return plain(c.e.jp)};
-  const sw=d=>{const p=Math.round(deckProgress(d.id)*100);return `<div class="switch"><span style="min-width:0"><b>${esc(d.name)}</b><br><span class="muted jp" style="font-size:.82rem">${d.missing?'Chưa có nội dung':esc(d.sub)+' · thuộc '+p+'%'}</span></span><button class="tg" role="switch" aria-checked="${!!S.unlocked[d.id]}" data-u="${d.id}" aria-label="Mở ${esc(d.name)}" ${d.missing?'disabled':''}></button></div>`};
-  const tdy=today();
-  app.innerHTML=`<div class="stack"><div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><div style="flex:1"><h1>Trang giáo viên</h1>${syncBadge()}</div><button class="btn ghost" id="rf" style="padding:8px 12px">Làm mới</button></div>
-  <div class="stats"><div class="stat"><b>${tdy.rev}</b><span>thẻ hôm nay</span></div><div class="stat"><b>${Math.round(tdy.secs/60)}</b><span>phút hôm nay</span></div><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div></div>
-  <div class="card stack"><h3>Số thẻ Na ôn 14 ngày qua</h3><div class="bars">${days.map(d=>`<div title="${d.k}: ${d.r} thẻ, ${d.m} phút" style="height:${d.r/mx*100}%"></div>`).join('')}</div><div class="row muted" style="justify-content:space-between;font-size:.75rem"><span>${days[0].k.slice(5)}</span><span>hôm nay</span></div></div>
-  <div class="card stack"><h3>Na hay quên nhất</h3>${hard.length?hard.map(([id,c])=>`<div class="switch"><span class="jp" style="min-width:0">${esc(label(id))}</span><span class="pill">quên ${c.lapses} lần</span></div>`).join(''):'<p class="muted" style="margin:0">Chưa có từ nào bị quên.</p>'}</div>
-  <div class="card"><h3>Mở bài cho Na</h3>
-    <div class="ksec">Bảng chữ cái</div>${DECKS.filter(d=>d.kind==='kana').map(sw).join('')}
-    <div class="ksec">Minna N5</div>${DECKS.filter(d=>d.kind==='minna').map(sw).join('')}
-    <div class="ksec">Kanji (gợi ý mở cùng bài Minna ghi bên dưới)</div>${DECKS.filter(d=>d.kind==='kanji').map(sw).join('')}</div>
+  const tdy=today();const week=days.slice(-7).reduce((a,d)=>a+d.r,0),weekMin=days.slice(-7).reduce((a,d)=>a+d.m,0);
+  const open=unlockedDecks();
+  app.innerHTML=`<div class="stack">${tTop('Bảng theo dõi','Thầy Nhân · lớp của Na')}
+  <div class="card stack"><div class="row" style="justify-content:space-between"><h3>Hôm nay</h3><span class="pill">Na học lần cuối: ${ago(last)}</span></div>
+    <div class="stats"><div class="stat"><b>${tdy.rev}</b><span>lượt ôn</span></div><div class="stat"><b>${tdy.rev?Math.round(tdy.ok/tdy.rev*100):0}%</b><span>trả lời đúng</span></div><div class="stat"><b>${Math.round(tdy.secs/60)}</b><span>phút</span></div></div></div>
+  <div class="stats"><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div><div class="stat"><b>${known}</b><span>thẻ đã thuộc</span></div><div class="stat"><b>${due}</b><span>đang chờ ôn</span></div></div>
+  <div class="card stack"><div class="row" style="justify-content:space-between"><h3>14 ngày qua</h3><span class="muted" style="font-size:.85rem;font-weight:700">7 ngày: ${week} lượt, ${weekMin} phút</span></div><div class="bars">${days.map(d=>`<div title="${d.k}: ${d.r} lượt, ${d.m} phút" style="height:${d.r/mx*100}%"></div>`).join('')}</div><div class="row muted" style="justify-content:space-between;font-size:.75rem"><span>${days[0].k.slice(5)}</span><span>hôm nay</span></div></div>
+  <div class="card stack"><h3>Tiến độ từng bài đang mở</h3>${open.map(d=>{const cs=deckCards(d.id),n=cs.length,met=cs.filter(c=>S.cards[c.id]).length,k=cs.filter(c=>S.cards[c.id]&&S.cards[c.id].state===2).length;return `<div><div class="row" style="justify-content:space-between"><b>${esc(d.name)}</b><span class="muted" style="font-size:.82rem">đã gặp ${met}/${n} · thuộc ${k}</span></div><div class="bar" style="position:relative"><i style="width:${n?met/n*100:0}%;opacity:.35;position:absolute;inset:0 auto 0 0"></i><i style="width:${n?k/n*100:0}%;position:relative"></i></div></div>`}).join('')}</div>
+  <div class="card stack"><h3>Na hay quên nhất</h3>${hard.length?hard.map(([id,c])=>`<div class="switch"><span class="jp" style="min-width:0">${esc(cardLabel(id))}</span><span class="pill">quên ${c.lapses} lần</span></div>`).join(''):'<p class="muted" style="margin:0">Chưa có từ nào bị quên.</p>'}</div>
   <div class="card stack"><h3>Game gần đây</h3>${S.games.slice(-5).reverse().map(g=>`<div class="switch"><span>${g.t==='match'?'Ghép cặp':'Đua 60 giây'} · ${g.d}</span><b>${g.s} điểm</b></div>`).join('')||'<p class="muted" style="margin:0">Chưa chơi game nào.</p>'}</div>
-  <div class="card stack"><h3>Mã học</h3><p style="margin:0">Mã của hai đứa: <b class="jp" style="user-select:all">${esc(CODE)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Đừng gửi mã này cho ai khác: ai có mã sẽ xem được bài học và tiến độ.</p></div>
-  <div class="card stack"><h3>Đổi mã giáo viên</h3><form id="cp" class="row"><input id="np" inputmode="numeric" autocomplete="off" placeholder="Mã mới" style="flex:1;min-width:0;font:inherit;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--surface);color:var(--ink)"><button class="btn">Lưu</button></form>
-    <p class="muted" style="margin:0;font-size:.82rem">Máy nào chọn "Anh là giáo viên" lúc nhập mã thì vào thẳng trang này, không cần mã giáo viên.</p></div></div>`;
-  app.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{S.unlocked[b.dataset.u]=!S.unlocked[b.dataset.u];touchSettings();save();b.setAttribute('aria-checked',!!S.unlocked[b.dataset.u])});
-  $('#rf').onclick=async()=>{await sync();route(true)};
-  $('#cp').onsubmit=e=>{e.preventDefault();const v=$('#np').value.trim();if(v.length>=4){S.pin=v;touchSettings();save();toast('n02_nghiem_tuc','Đã đổi mã giáo viên.')}else toast('na03_boi_roi','Mã cần ít nhất 4 số nha anh.')};
+  <button class="btn ghost wide" id="rf">Làm mới số liệu</button>
+  <p class="foot">${seen} thẻ Na đã gặp · ${S.stars} ngôi sao</p></div>`;
+  $('#rf').onclick=async()=>{await sync();route(true);toast('n02_nghiem_tuc','Đã cập nhật.')};
+}
+function tUnlock(){nav('t-unlock');
+  const sw=d=>{const p=Math.round(deckProgress(d.id)*100);return `<div class="switch"><span style="min-width:0"><b>${esc(d.name)}</b><br><span class="muted jp" style="font-size:.82rem">${d.missing?'Chưa có nội dung':esc(d.sub)+(S.unlocked[d.id]?' · thuộc '+p+'%':'')}</span></span><button class="tg" role="switch" aria-checked="${!!S.unlocked[d.id]}" data-u="${d.id}" aria-label="Mở ${esc(d.name)}" ${d.missing?'disabled':''}></button></div>`};
+  const kOf=n=>DECKS.filter(d=>d.kind==='kanji'&&lessonDoc(d)&&lessonDoc(d).minna===n);
+  app.innerHTML=`<div class="stack">${tTop('Mở bài cho Na','Bài nào bật thì Na mới thấy và ôn')}
+  <div class="card"><h3>Bảng chữ cái</h3>${DECKS.filter(d=>d.kind==='kana').map(sw).join('')}</div>
+  <div class="card"><h3>Minna N5 và Kanji đi kèm</h3><p class="muted" style="font-size:.85rem;margin:4px 0 0">Mỗi Unit Kanji nằm ngay dưới bài Minna nên học cùng.</p>
+    ${DECKS.filter(d=>d.kind==='minna').map(d=>sw(d)+kOf(d.no).map(k=>`<div style="padding-left:16px;border-left:3px solid var(--line)">${sw(k)}</div>`).join('')).join('')}</div></div>`;
+  app.querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{S.unlocked[b.dataset.u]=!S.unlocked[b.dataset.u];touchSettings();save();b.setAttribute('aria-checked',!!S.unlocked[b.dataset.u]);toast('n02_nghiem_tuc',(S.unlocked[b.dataset.u]?'Đã mở ':'Đã khóa ')+deckOf(b.dataset.u).name,1400)});
+}
+function tSettings(){nav('t-set');const tcode=ls.get('nwn-tcode','');
+  app.innerHTML=`<div class="stack">${tTop('Cài đặt','Máy của thầy Nhân')}
+  <div class="card stack"><h3>Mã của Na</h3><p style="margin:0"><b class="jp" style="user-select:all">${esc(CODE)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Đưa mã này cho Na. Mã này chỉ vào được phần học.</p></div>
+  <div class="card stack"><h3>Mã giáo viên của anh</h3><p style="margin:0"><b class="jp" style="user-select:all;overflow-wrap:anywhere">${esc(tcode)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Chỉ anh giữ. Ai có mã này mới vào được bảng theo dõi và mở bài.</p></div>
+  <div class="card stack"><h3>Số thẻ mới mỗi ngày của Na</h3><div class="switch"><span><b>Giới hạn</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Tối đa '+S.newPerDay+' thẻ mới mỗi ngày':'Đang tắt: Na học bao nhiêu tùy ý'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Giới hạn thẻ mới mỗi ngày"></button></div>
+    ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}</div>
+  <div class="card stack"><button class="btn ghost" id="rc">Tải lại bài học</button><button class="btn ghost" id="lo">Thoát khỏi máy này</button></div></div>`;
+  $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();tSettings()};
+  $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();tSettings()});
+  $('#rc').onclick=async()=>{try{await loadContent(true);toast('n02_nghiem_tuc','Đã tải lại bài học.')}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng.')}};
+  $('#lo').onclick=()=>{if(!confirm('Thoát mã giáo viên trên máy này?'))return;logout();go('home')};
 }
 
 /* ---------- khởi động ---------- */
 buildDecks();
-Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.json()).catch(()=>null)).concat([recoverCode()])).then(async([k,h])=>{STROKES=k||{};HV=h||{};if(CODE)keepCode(CODE,ls.get('nwn-ckey',''),LOCAL.role);
+Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.json()).catch(()=>null)).concat([recoverCode()])).then(async([k,h])=>{STROKES=k||{};HV=h||{};if(CODE&&LOCAL.role==='teacher'&&!ls.get('nwn-tcode','')){logout();}if(CODE)keepCode(CODE,ls.get('nwn-ckey',''),LOCAL.role,ls.get('nwn-tcode',''));
   if(!hasF)toast('na03_boi_roi','Chưa tải được thuật toán ôn tập, kiểm tra mạng rồi mở lại nha.',4000);
   route();
   if(CODE){try{const changed=!Object.keys(CONTENT.docs).length;await loadContent(false);if(changed)route(true)}catch(e){}sync()}
 });
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
-setInterval(()=>{if(!document.hidden&&location.hash==='#teacher')sync()},60000);
+setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
