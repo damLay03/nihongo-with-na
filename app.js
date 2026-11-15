@@ -25,7 +25,7 @@ const ICON={
 
 /* ---------- local state ---------- */
 const KEY='nwn-v1';
-const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0,stk:{}};
+const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0,own:{},ev:{},buy:{}};
 let S=Object.assign(structuredClone(DEF),ls.get(KEY,{}));
 let LOCAL=Object.assign({hello:false,role:'student'},ls.get('nwn-local',{}));
 if(!LOCAL.dev){LOCAL.dev=Math.random().toString(36).slice(2,10);ls.set('nwn-local',LOCAL)}
@@ -94,7 +94,8 @@ function merge(a,b){
   (b.games||[]).forEach(g=>{const k=g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'');if(!seen.has(k)){seen.add(k);o.games.push(g)}});
   o.games.sort((x,y)=>(x.at||0)-(y.at||0));o.games=o.games.slice(-200);
   o.th=o.th||b.th;
-  o.stk=Object.assign({},b.stk||{},o.stk||{});for(const [k,v] of Object.entries(b.stk||{}))if(v<o.stk[k])o.stk[k]=v;
+  delete o.stk;o.own=Object.assign({},b.own||{},o.own||{});for(const [k,v] of Object.entries(b.own||{}))if(v<o.own[k])o.own[k]=v;
+  o.buy=Object.assign({},b.buy||{},o.buy||{});o.ev=Object.assign({},o.ev||{});for(const [k,v] of Object.entries(b.ev||{}))o.ev[k]=Math.max(o.ev[k]||0,v||0);
   o.push=Object.assign({},o.push||{});for(const [k,v] of Object.entries(b.push||{}))if(!o.push[k]||(v.at||0)>(o.push[k].at||0))o.push[k]=v;
   if((b.setAt||0)>(o.setAt||0)){o.unlocked=b.unlocked;o.newPerDay=b.newPerDay;o.pin=b.pin;o.setAt=b.setAt}
   return o;
@@ -204,7 +205,7 @@ function loadVoices(){try{const v=speechSynthesis.getVoices();jaVoice=v.find(x=>
 try{loadVoices();speechSynthesis.onvoiceschanged=loadVoices}catch(e){}
 function say(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(t).replace(/[　\s]+/g,' ').replace(/[～~]/g,''));u.lang='ja-JP';if(jaVoice)u.voice=jaVoice;u.rate=.85;speechSynthesis.speak(u)}catch(e){toast('n02_nghiem_tuc','Máy này chưa có giọng đọc tiếng Nhật nha em')}}
 let revealAt=0;
-document.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(b){e.stopPropagation();if(Date.now()-revealAt<450)return;say(b.dataset.say)}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(b){e.stopPropagation();if(Date.now()-revealAt<450)return;say(b.dataset.say);track('say')}});
 const spk=t=>`<button class="spk" data-say="${esc(t)}" aria-label="Nghe phát âm">${ICON.spk}</button>`;
 
 /* ---------- sticker & câu nói ---------- */
@@ -313,7 +314,7 @@ function vHome(){nav('home');
   else if(st&&st%7===0&&S.streak.last===dkey()){img='06_om_nhau';msg=`Chuỗi ${st} ngày rồi! Giỏi quá đi mất!`}
   else if(due>0){img='n06_nhac_gio';msg=`Còn ${due} thẻ đang chờ em ôn nè. Nhanh lắm, 5 phút thôi!`}
   else if(nl>0){img='g1_cuoi_vui';msg=S.newPerDay?`Hôm nay mình học ${nl} thẻ mới nha em!`:`Có ${nl} thẻ mới đang chờ. Mỗi lượt 20 thẻ, học bao nhiêu tùy em nha!`}
-  else{img='07_lo_dau';msg='Xong hết bài hôm nay rồi! Em đi chơi game hay nghỉ ngơi đi~'}
+  else{img='07_lo_dau';msg='Xong hết bài hôm nay rồi! Em đi chơi game hay nghỉ ngơi đi~';if(today().rev>0)setTimeout(()=>track('alldone'),0)}
   const t=today();
   app.innerHTML=`<div class="stack">
     <div class="top"><div><div class="muted" style="font-weight:800">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'numeric'})}</div><h1>Nihongo với Na</h1>${syncBadge()}</div><img src="${IMG('r_na')}" alt="Na" width="52" height="52" style="border-radius:50%"></div>
@@ -325,7 +326,7 @@ function vHome(){nav('home');
       ${due+nl?'':(newIds(1).length?'<button class="btn ghost wide" id="extra">Học thêm 5 thẻ mới</button>':'')}
       <p class="muted" style="margin:0;font-size:.88rem">Chạm thẻ để lật, vuốt trái là Quên, vuốt phải là Được. App tự tính ngày ôn lại theo đường cong quên, giống Anki.</p>
     </div>
-    <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.stk[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ôn thêm để mở quà</span></span><span aria-hidden="true">›</span></a>
+    <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.own[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
   LOCAL.hello=true;saveLocal();
@@ -351,6 +352,7 @@ let lessonTab='vocab';
 const tipHTML=t=>t?`<div class="tip"><img src="${IMG('04_thi_tham')}" alt=""><div><b>Anh mách nhỏ:</b>\n${esc(t)}</div></div>`:'';
 function cellHTML(c){if(c&&!Array.isArray(c)&&c.vn!==undefined)return `<td class="vn">${esc(c.vn)}</td>`;return `<td>${rubyHTML(c||[])}</td>`}
 function vLesson(id){nav('lessons');const d=deckOf(id);if(!available(d))return go('lessons');
+  setTimeout(()=>track('lesson'),0);
   if(d.kind==='kana')return vKana(id);
   if(d.kind==='kanji')return vKanjiUnit(d);
   const B=lessonDoc(d);
@@ -362,7 +364,7 @@ function vLesson(id){nav('lessons');const d=deckOf(id);if(!available(d))return g
   ${isT()?'':'<div class="row" style="margin-top:14px"><button class="btn wide" id="learnNew">Học thẻ mới của bài này</button></div>'}`;
   app.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{lessonTab=b.dataset.t;vLesson(id)});
   $('#learnNew')&&($('#learnNew').onclick=()=>{sessionDeck=id;go('review')});
-  const L=$('#lbody');
+  const L=$('#lbody');if(lessonTab!=='vocab')setTimeout(()=>track(lessonTab),0);
   if(lessonTab==='vocab')L.innerHTML=B.vocab.map(g=>`<div class="card"><h3>${esc(g.title)}</h3>${g.tip?`<div style="margin:10px 0">${tipHTML(g.tip)}</div>`:''}
     ${g.words.map(w=>{const hv=hanviet(w.kanji);return `<div class="word"><div style="min-width:0"><div class="w">${rubyHTML(wordSegs(w))}</div><div class="m">${esc(w.vn)}</div><div class="muted" style="font-size:.8rem">${esc(w.ro)}${hv?' · Hán Việt: '+esc(hv):''}</div></div>${spk(w.kana)}</div>`}).join('')}</div>`).join('')
     +(B.tables||[]).map(t=>`<div class="card"><h3>${esc(t.title)}</h3><div class="tblwrap"><table class="tbl"><thead><tr>${t.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr>${r.map(cellHTML).join('')}</tr>`).join('')}</tbody></table></div></div>`).join('');
@@ -418,7 +420,7 @@ function bindTrace(paths){
   cv.onpointerup=cv.onpointercancel=()=>{drawing=false};
   $('#clr').onclick=()=>{ctx.clearRect(0,0,cv.width,cv.height);strokes=0};
   $('#chk').onclick=()=>{if(!strokes)return toast('n02_nghiem_tuc','Tô thử đi em, anh đang chờ nè!');
-    if(strokes===paths.length){if(!isT()){S.stars+=1;save()};toast('n03_ninh_na',`Đúng ${paths.length} nét luôn! ${pick(LINES.praise)}`);{const [x,y]=mid($('#tr'));burst(x,y,10)}}
+    if(strokes===paths.length){if(!isT()){S.stars+=1;save();track('trace')};toast('n03_ninh_na',`Đúng ${paths.length} nét luôn! ${pick(LINES.praise)}`);{const [x,y]=mid($('#tr'));burst(x,y,10)}}
     else toast('n01_nhay',`Em viết ${strokes} nét, chữ này có ${paths.length} nét nha~ Xem lại thứ tự nét nè.`,2600)};
 }
 function kanaModal(ch){
@@ -428,7 +430,7 @@ function kanaModal(ch){
     ${paths?traceHTML(paths.length):`<p class="muted">Chữ ghép: viết như hai chữ, chữ sau nhỏ hơn. Bấm loa để nghe.</p>`}`);
   if(paths)bindTrace(paths);
 }
-async function kanjiModal(k){
+async function kanjiModal(k){track('kanji');
   if(!KSTROKES){try{KSTROKES=await (await fetch('data/kanji_strokes.json')).json()}catch(e){KSTROKES={}}}
   const paths=KSTROKES[k.k]||null;
   const words=k.words.map(w=>{const s=kwSegs(w[0]);return `<div class="ex"><div style="min-width:0"><div class="j">${rubyHTML(s,'show')}</div><div class="muted" style="font-size:.9rem">${esc(w[1])}</div></div>${spk(reading(s))}</div>`}).join('');
@@ -519,14 +521,14 @@ function grade(id,c,r,rec){if(gradeLock)return;gradeLock=true;const isNew=!S.car
   S.cards[id]=Object.assign({},nc,{deck:c.deck,due:nc.due.toISOString(),last_review:nc.last_review?new Date(nc.last_review).toISOString():new Date().toISOString(),lapses:nc.lapses||0,mod:Date.now()});
   if(isNew)t.nw++;t.rev++;if(r>1)t.ok++;S.stars+=r>1?1:0;markStudy();save();
   const gotS=checkStickers();if(gotS.length)setTimeout(()=>stkPing(gotS[0]),300);
-  if(r===1){okStreak=0;toast(Math.random()<.7?'n01_nhay':'05_vo_ve_an_ui',Math.random()<.7?pick(LINES.tease):pick(LINES.comfort))}
-  else{okStreak++;if(okStreak===3||okStreak%6===0)toast(pick(['n03_ninh_na','g6_chu_v','g1_cuoi_vui']),pick(LINES.praise))}
+  if(r===1){okStreak=0;track('forget');toast(Math.random()<.7?'n01_nhay':'05_vo_ve_an_ui',Math.random()<.7?pick(LINES.tease):pick(LINES.comfort))}
+  else{okStreak++;track('combo',okStreak);if(okStreak===3||okStreak%6===0)toast(pick(['n03_ninh_na','g6_chu_v','g1_cuoi_vui']),pick(LINES.praise))}
   if(new Date(S.cards[id].due).getTime()-Date.now()<20*60000)Q.push(id);
   const fl=$('#fl');
   if(fl&&!RM){if(r>1){const [x,y]=mid(fl);burst(x,y,r===4?12:8);floatText(fl,'+1 ★')}else shake(fl)}
   qi++;doneCount++;
   if(fl&&!fl.style.transform&&!RM){fl.style.transition='transform .2s ease-in,opacity .2s';fl.style.transform=r===1?'translateX(-120%) rotate(-12deg)':'translateX(120%) rotate(12deg)';fl.style.opacity='0';setTimeout(renderCard,r===1?260:190)}else renderCard()}
-function finish(){sessionStop();sessionDeck=null;const t=today();sync();
+function finish(){sessionStop();sessionDeck=null;const t=today();track('finish');sync();
   app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('02_ban_tay_tim')}" alt=""><div class="bubble">Xong rồi! Hôm nay em ôn ${t.rev} thẻ, đúng ${t.ok}. Anh thương em nhiều lắm!</div></div>
   <div class="stats"><div class="stat"><b>${doneCount}</b><span>lượt vừa ôn</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div></div>
   ${dueIds().length||(newLeft()>0&&newIds(1).length)?'<button class="btn wide" id="more">Học tiếp</button>':''}<a class="btn ${dueIds().length||newIds(1).length?'ghost ':''}wide" href="#games">Chơi game thư giãn</a><a class="btn ghost wide" href="#home">Về trang chính</a></div>`;
@@ -600,43 +602,63 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
 
 /* ---------- bộ sưu tập sticker ---------- */
 // Mỗi bộ có một thước đo; sticker trong bộ mở dần theo ngưỡng. Bộ chưa có ảnh hiện "Sắp ra mắt".
+// Bộ 1–2: nhiệm vụ khám phá app (làm theo thứ tự nào cũng được). Bộ 3 trở đi: mua bằng sao.
+const evN=k=>(S.ev&&S.ev[k])||0;
 const STK=[
- {id:'p1',name:'Học sinh Nhật',m:'rev',goal:[10,25,50,80,120,170,230,300,400],items:[['1-03','Na giơ tay phát biểu'],['1-02','Anh ôm chồng sách'],['1-07','Anh ngại ngùng cố lên'],['1-06','Vẽ tim lên bảng'],['1-08','Na được điểm cao'],['1-04','Chung ô ngày mưa'],['1-05','Na ngủ gật, anh khoác áo'],['1-09','Ăn cơm nắm sau giờ học'],['1-01','Nắm tay cùng tới trường']]},
- {id:'p2',name:'Lễ hội Yukata',m:'streak',goal:[1,2,3,4,5,6,7,10,14],items:[['2-02','Na ăn kẹo táo'],['2-03','Anh vớt được cá vàng'],['2-04','Na phe phẩy quạt'],['2-05','Anh mê takoyaki'],['2-09','Na đeo mặt nạ cáo'],['2-06','Cùng chắp tay ước'],['2-07','Đi lễ đền'],['2-10','Pháo bông que trên cầu'],['2-01','Ngắm pháo hoa cùng nhau']]},
- {id:'p3',name:'Bếp ramen',m:'mast',goal:[10,20,35,50,70,100,130,160],items:[['3-03','Na nếm nước dùng'],['3-04','Anh làm cháy rồi…'],['3-08','Anh đeo găng lò'],['3-02','Anh kéo mì'],['3-05','Na nặn cơm nắm'],['3-07','Na bưng sushi'],['3-06','Anh đút Na ăn'],['3-01','Bát ramen của hai đứa']]},
- {id:'p4',name:'Đồ ngủ thú',m:'rev',goal:[500,600,700,800,950,1100,1300,1500],items:[['4-05','Mèo xám dỗi'],['4-02','Thỏ Na nhảy cẫng'],['4-03','Mèo anh vẫy tay'],['4-04','Na ôm gối ngôi sao'],['4-08','Na uống ca cao'],['4-07','Hai đứa giận nhau'],['4-09','Anh đắp chăn cho Na'],['4-01','Cuộn chăn cùng nhau']]},
- {id:'p5',name:'Phi hành gia',soon:'Mở 10 bài Minna'},
- {id:'p6',name:'Hoàng tử và công chúa',soon:'Chuỗi 30 ngày liền'},
- {id:'p7',name:'Mùa đông Tokyo',soon:'Thuộc 300 thẻ'},
- {id:'p8',name:'Tốt nghiệp N5',soon:'Thuộc hết Bài 1 đến 25'}];
+ {id:'p1',name:'Học sinh Nhật',kind:'quest',items:[
+  ['1-03','Na giơ tay phát biểu','Học xong một lượt ôn thẻ',()=>evN('finish')>=1],
+  ['1-02','Anh ôm chồng sách','Mở xem một bài học',()=>evN('lesson')>=1],
+  ['1-07','Anh ngại ngùng cố lên','Bấm loa nghe phát âm 5 lần',()=>evN('say')>=5],
+  ['1-06','Vẽ tim lên bảng','Tô đúng một chữ ở bảng chữ cái',()=>evN('trace')>=1],
+  ['1-08','Na được điểm cao','Chơi một ván Ghép cặp',()=>S.games.some(g=>g.t==='match')],
+  ['1-04','Chung ô ngày mưa','Vuốt trái một thẻ em quên (không sao đâu)',()=>evN('forget')>=1],
+  ['1-09','Ăn cơm nắm sau giờ học','Xem phần Ngữ pháp của một bài',()=>evN('gram')>=1],
+  ['1-05','Na ngủ gật, anh khoác áo','Học đủ 20 phút trong một ngày',()=>Object.values(S.log).some(l=>(l.secs||0)>=1200)],
+  ['1-01','Nắm tay cùng tới trường','Học 2 ngày khác nhau',()=>Object.values(S.log).filter(l=>(l.rev||0)>0).length>=2]]},
+ {id:'p2',name:'Lễ hội Yukata',kind:'quest',items:[
+  ['2-02','Na ăn kẹo táo','Chơi một ván Đua 60 giây',()=>S.games.some(g=>g.t==='race')],
+  ['2-03','Anh vớt được cá vàng','Mở xem chi tiết một chữ Kanji',()=>evN('kanji')>=1],
+  ['2-04','Na phe phẩy quạt','Đọc phần Hội thoại của một bài',()=>evN('conv')>=1],
+  ['2-05','Anh mê takoyaki','Bật nhắc học ở tab Tớ',()=>Object.values(S.push||{}).some(v=>v&&v.sub&&v.role!=='teacher')],
+  ['2-09','Na đeo mặt nạ cáo','Bấm xem to một sticker trong bộ sưu tập',()=>evN('sview')>=1],
+  ['2-06','Cùng chắp tay ước','Lưu hoặc chia sẻ một sticker',()=>evN('share')>=1],
+  ['2-10','Pháo bông que trên cầu','Đúng liền 10 thẻ không quên cái nào',()=>evN('combo')>=10],
+  ['2-07','Đi lễ đền','Ôn sạch hết thẻ trong một ngày',()=>evN('alldone')>=1],
+  ['2-01','Ngắm pháo hoa cùng nhau','Học liền 3 ngày không nghỉ',()=>Math.max(S.streak.best||0,streakNow())>=3]]},
+ {id:'p3',name:'Bếp ramen',kind:'shop',items:[['3-03','Na nếm nước dùng',40],['3-04','Anh làm cháy rồi…',50],['3-08','Anh đeo găng lò',60],['3-02','Anh kéo mì',80],['3-05','Na nặn cơm nắm',100],['3-07','Na bưng sushi',120],['3-06','Anh đút Na ăn',150],['3-01','Bát ramen của hai đứa',200]]},
+ {id:'p4',name:'Đồ ngủ thú',kind:'shop',items:[['4-05','Mèo xám dỗi',150],['4-02','Thỏ Na nhảy cẫng',180],['4-03','Mèo anh vẫy tay',220],['4-04','Na ôm gối ngôi sao',260],['4-08','Na uống ca cao',300],['4-07','Hai đứa giận nhau',350],['4-09','Anh đắp chăn cho Na',400],['4-01','Cuộn chăn cùng nhau',500]]},
+ {id:'p5',name:'Phi hành gia',soon:1},{id:'p6',name:'Hoàng tử và công chúa',soon:1},{id:'p7',name:'Mùa đông Tokyo',soon:1},{id:'p8',name:'Tốt nghiệp N5',soon:1}];
 const SIMG=f=>'img/s/'+f+'.webp';
-const MLAB={rev:['lượt ôn','Ôn thẻ'],streak:['ngày liền','Học liền mạch'],mast:['thẻ đã thuộc','Thuộc thẻ']};
-function metric(m){if(m==='rev')return Object.values(S.log).reduce((a,l)=>a+(l.rev||0),0);
-  if(m==='streak')return Math.max(S.streak.best||0,streakNow());
-  return Object.values(S.cards).filter(c=>c.state===2).length}
-const STK_ALL=STK.filter(p=>p.items).flatMap(p=>p.items.map((it,i)=>({id:it[0],cap:it[1],p,need:p.goal[i]})));
-const stkTotal=()=>STK_ALL.length,stkHave=()=>STK_ALL.filter(s=>S.stk[s.id]).length;
-// tìm sticker mới đạt, ghi vào S.stk và hàng chờ mở quà trên máy này
-function checkStickers(){if(isT()||!CODE)return [];const got=[];const mv={};
-  for(const s of STK_ALL){if(S.stk[s.id])continue;const v=mv[s.p.m]??(mv[s.p.m]=metric(s.p.m));if(v>=s.need){S.stk[s.id]=Date.now();got.push(s.id)}}
-  if(got.length){LOCAL.pend=(LOCAL.pend||[]).concat(got);LOCAL.fresh=(LOCAL.fresh||[]).concat(got);saveLocal();save()}
-  return got}
+const STK_ALL=STK.filter(p=>p.items).flatMap(p=>p.items.map(it=>p.kind==='quest'?{id:it[0],cap:it[1],p,quest:it[2],ok:it[3]}:{id:it[0],cap:it[1],p,price:it[2]}));
+const stkTotal=()=>STK_ALL.length,stkHave=()=>STK_ALL.filter(s=>S.own[s.id]).length;
+const spent=()=>Object.values(S.buy||{}).reduce((a,v)=>a+(+v||0),0);
+const starBal=()=>Math.max(0,(S.stars||0)-spent());
+function gotNew(got){if(!got.length)return;LOCAL.pend3=(LOCAL.pend3||[]).concat(got);LOCAL.fresh3=(LOCAL.fresh3||[]).concat(got);saveLocal();save()}
+// nhiệm vụ xong thì tặng sticker; bộ mua bằng sao không tự mở
+function checkStickers(){if(isT()||!CODE)return [];const got=[];
+  for(const s of STK_ALL){if(S.own[s.id]||!s.ok)continue;let ok=false;try{ok=s.ok()}catch(e){}if(ok){S.own[s.id]=Date.now();got.push(s.id)}}
+  gotNew(got);return got}
+// ghi lại thao tác khám phá app
+function track(k,max){if(isT()||!CODE)return;S.ev=S.ev||{};if(max!=null){if(max<=(S.ev[k]||0))return;S.ev[k]=max}else S.ev[k]=(S.ev[k]||0)+1;
+  save();const g=checkStickers();if(!g.length)return;if(/^#(review|game-)/.test(location.hash))setTimeout(()=>stkPing(g[0]),300);else setTimeout(showReveal,500)}
+function buySticker(id){const s=STK_ALL.find(x=>x.id===id);if(!s||!s.price||S.own[id])return;if(starBal()<s.price)return toast('n05_doi',`Còn thiếu ${s.price-starBal()} sao nữa nha em~`);
+  S.buy=S.buy||{};S.buy[id]=s.price;S.own[id]=Date.now();gotNew([id]);sync();closeModal();showReveal()}
 // thông báo nhỏ khi đang ôn, không chặn tay
 function stkPing(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const el=document.createElement('div');el.className='stkping';el.innerHTML=`<img src="${SIMG(id)}" alt=""><span><b>Sticker mới!</b><br>Học xong mở quà nha</span>`;
   el.addEventListener('animationend',e=>{if(e.animationName==='pingOut')el.remove()});document.body.appendChild(el)}
 // màn mở quà: hộp quà rung, chạm để lật ra sticker
-function showReveal(){const q=LOCAL.pend||[];if(!q.length||isT()||$('#gift')||/^#(review|game-)/.test(location.hash))return false;let i=0;const n=q.length;
+function showReveal(){const q=LOCAL.pend3||[];if(!q.length||isT()||$('#gift')||/^#(review|game-)/.test(location.hash))return false;let i=0;const n=q.length;
   const root=document.createElement('div');root.id='gift';root.className='gift';root.setAttribute('role','dialog');root.setAttribute('aria-label','Sticker mới');document.body.appendChild(root);
   const step=()=>{const id=q[i],s=STK_ALL.find(x=>x.id===id);if(!s){next();return}
     root.innerHTML=`<div class="gin"><p class="gt">${n>1?`Quà ${i+1}/${n}`:'Em có quà nè!'}</p>
       <button class="gbox" id="gbox" aria-label="Mở quà"><span class="rays" aria-hidden="true"></span><span class="gface gfront"><span class="ribbon"></span><span class="bow">🎀</span><b>Chạm để mở</b></span><span class="gface gback"><img src="${SIMG(id)}" alt="${esc(s.cap)}"></span></button>
-      <div class="gcap"><b>${esc(s.cap)}</b><span>Bộ ${esc(s.p.name)} · ${STK_ALL.filter(x=>x.p===s.p&&S.stk[x.id]).length}/${s.p.items.length}</span></div>
+      <div class="gcap"><b>${esc(s.cap)}</b><span>Bộ ${esc(s.p.name)} · ${STK_ALL.filter(x=>x.p===s.p&&S.own[x.id]).length}/${s.p.items.length}</span></div>
       <button class="btn wide gnext" id="gnext">${i<n-1?'Mở quà tiếp':'Cất vào bộ sưu tập'}</button></div>`;
     const b=$('#gbox');let opened=false;const im=new Image();im.src=SIMG(id);
     const open=()=>{if(opened)return;opened=true;root.classList.add('opened');const [x,y]=mid(b);setTimeout(()=>{burst(x,y,16,'♥★✿♥');rain(26)},260)};
     b.onclick=open;$('#gnext').onclick=()=>{if(!opened)return open();next()};root.classList.remove('opened');
   };
-  const next=()=>{i++;if(i<n)step();else{LOCAL.pend=[];saveLocal();root.classList.add('bye');setTimeout(()=>root.remove(),250);if(location.hash!=='#album')go('album')}};
+  const next=()=>{i++;if(i<n)step();else{LOCAL.pend3=[];saveLocal();root.classList.add('bye');setTimeout(()=>root.remove(),250);if(location.hash!=='#album')go('album');else vAlbum()}};
   step();return true}
 // Bộ đã sưu tập đủ thì dùng thay sticker mặc định của app. Chỗ nào bộ không có sticker hợp thì giữ sticker mặc định.
 const THEMES={
@@ -644,33 +666,44 @@ const THEMES={
  p2:{'01_vui_bat_ngo':'2-09','06_om_nhau':'2-10','02_ban_tay_tim':'2-01','g1_cuoi_vui':'2-02','n03_ninh_na':'2-05','g6_chu_v':'2-09','08_an_mung':'2-03','07_lo_dau':'2-04','na04_met':'2-04','05_vo_ve_an_ui':'2-07','n04_co_vu':'2-03','na01_hoc_bai':'2-06'},
  p3:{'01_vui_bat_ngo':'3-08','06_om_nhau':'3-01','02_ban_tay_tim':'3-06','g1_cuoi_vui':'3-07','n03_ninh_na':'3-02','g6_chu_v':'3-07','08_an_mung':'3-01','07_lo_dau':'3-05','n01_nhay':'3-04','05_vo_ve_an_ui':'3-06','04_thi_tham':'3-03','n04_co_vu':'3-08','na01_hoc_bai':'3-03'},
  p4:{'01_vui_bat_ngo':'4-03','06_om_nhau':'4-01','02_ban_tay_tim':'4-09','g1_cuoi_vui':'4-02','n03_ninh_na':'4-02','g6_chu_v':'4-04','08_an_mung':'4-02','07_lo_dau':'4-08','na04_met':'4-09','n05_doi':'4-05','n01_nhay':'4-07','05_vo_ve_an_ui':'4-01','n04_co_vu':'4-03'}};
-const packDone=id=>{const p=STK.find(x=>x.id===id);return !!(p&&p.items&&p.items.every(it=>S.stk[it[0]]))};
+const packDone=id=>{const p=STK.find(x=>x.id===id);return !!(p&&p.items&&p.items.every(it=>S.own[it[0]]))};
 function themeMap(){if(isT())return null;const t=LOCAL.theme;return t&&THEMES[t]&&packDone(t)?THEMES[t]:null}
-function vAlbum(){nav('album');const fresh=new Set(LOCAL.fresh||[]);
-  const packs=STK.map((p,pi)=>{
-    if(p.soon)return `<div class="card pack soon"><div class="row" style="justify-content:space-between"><h3>${esc(p.name)}</h3><span class="pill">Sắp ra mắt</span></div><div class="sgrid">${'<div class="scell q">?</div>'.repeat(3)}</div><p class="muted" style="margin:0;font-size:.85rem">Điều kiện mở: ${esc(p.soon)}</p></div>`;
-    const v=metric(p.m),have=p.items.filter(it=>S.stk[it[0]]).length,nx=p.goal.find((g,i)=>!S.stk[p.items[i][0]]);
-    const pr=nx==null?100:Math.round(Math.min(1,v/nx)*100);
-    const hint=nx==null?'Đủ bộ rồi! Giỏi quá đi':`Còn ${nx-v} ${MLAB[p.m][0]} nữa là có sticker tiếp theo`;
-    return `<div class="card pack stack"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted" style="font-size:.82rem;font-weight:700">${MLAB[p.m][1]} · đang có ${v} ${MLAB[p.m][0]}</span></span><span class="pill">${have}/${p.items.length}</span></div>
-      <div class="sgrid">${p.items.map((it,i)=>S.stk[it[0]]?`<button class="scell${fresh.has(it[0])?' new':''}" data-st="${it[0]}" style="--i:${i}" aria-label="${esc(it[1])}"><img src="${SIMG(it[0])}" alt="" loading="lazy"></button>`:`<div class="scell lock" style="--i:${i}"><img src="${SIMG(it[0])}" alt="" loading="lazy"><small>${p.goal[i]}</small></div>`).join('')}</div>
-      <div><div class="bar"><i style="width:${pr}%"></i></div><p class="muted" style="margin:6px 0 0;font-size:.85rem;font-weight:700">${hint}</p></div>
-      ${THEMES[p.id]?(nx==null?`<button class="btn ${LOCAL.theme===p.id?'':'ghost '}wide" data-th="${p.id}">${LOCAL.theme===p.id?'Đang dùng cho app · bấm để về mặc định':'Dùng bộ này cho cả app'}</button>`:`<p class="muted" style="margin:0;font-size:.82rem">Đủ bộ thì dùng được bộ này thay sticker của cả app</p>`):''}</div>`}).join('');
-  app.innerHTML=`<div class="stack"><div class="top"><div><h1>Bộ sưu tập</h1><div class="muted" style="font-weight:800">${stkHave()}/${stkTotal()} sticker · học càng nhiều càng mở nhiều</div></div><img src="${IMG('02_ban_tay_tim')}" alt="" width="64" height="64" class="floaty"></div>${packs}</div>`;
+function vAlbum(){nav('album');checkStickers();const fresh=new Set(LOCAL.fresh3||[]);const bal=starBal();
+  const packs=STK.map(p=>{
+    if(p.soon)return `<div class="card pack soon"><div class="row" style="justify-content:space-between"><h3>${esc(p.name)}</h3><span class="pill">Sắp ra mắt</span></div><div class="sgrid">${'<div class="scell q">?</div>'.repeat(3)}</div><p class="muted" style="margin:0;font-size:.85rem">Bộ này đang vẽ, có rồi sẽ mua bằng sao nha</p></div>`;
+    const its=STK_ALL.filter(x=>x.p===p),have=its.filter(x=>S.own[x.id]).length,done=have===its.length;
+    const cell=(x,i)=>S.own[x.id]?`<button class="scell${fresh.has(x.id)?' new':''}" data-st="${x.id}" style="--i:${i}" aria-label="${esc(x.cap)}"><img src="${SIMG(x.id)}" alt="" loading="lazy"></button>`
+      :`<button class="scell lock${x.price?' shop':''}${x.price&&bal>=x.price?' can':''}" data-lk="${x.id}" style="--i:${i}" aria-label="${esc(x.price?'Mua với '+x.price+' sao':x.quest)}"><img src="${SIMG(x.id)}" alt="" loading="lazy"><small>${x.price?'★ '+x.price:'?'}</small></button>`;
+    const todo=its.filter(x=>!S.own[x.id]&&x.quest);
+    const sub=p.kind==='quest'?'Nhiệm vụ khám phá app':'Mua bằng sao';
+    return `<div class="card pack stack"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted" style="font-size:.82rem;font-weight:700">${sub}</span></span><span class="pill">${have}/${its.length}</span></div>
+      <div class="sgrid">${its.map(cell).join('')}</div>
+      ${todo.length?`<div class="qlist">${todo.map(x=>`<button class="qrow" data-lk="${x.id}"><span class="qdot" aria-hidden="true"></span><span>${esc(x.quest)}</span></button>`).join('')}</div>`:''}
+      ${done?`<button class="btn ${LOCAL.theme===p.id?'':'ghost '}wide" data-th="${p.id}">${LOCAL.theme===p.id?'Đang dùng cho app · bấm để về mặc định':'Dùng bộ này cho cả app'}</button>`:`<p class="muted" style="margin:0;font-size:.82rem">Đủ bộ thì dùng được bộ này thay sticker của cả app</p>`}</div>`}).join('');
+  app.innerHTML=`<div class="stack"><div class="top"><div><h1>Bộ sưu tập</h1><div class="muted" style="font-weight:800">${stkHave()}/${stkTotal()} sticker</div></div><img src="${IMG('02_ban_tay_tim')}" alt="" width="64" height="64" class="floaty"></div>
+    <div class="card wallet"><span class="wstar" aria-hidden="true">★</span><span><b>${bal} sao</b><br><span class="muted" style="font-size:.85rem;font-weight:700">Vuốt phải đúng thẻ, chơi game, tô chữ để có thêm sao</span></span></div>${packs}</div>`;
   app.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>stickerSheet(b.dataset.st));
+  app.querySelectorAll('[data-lk]').forEach(b=>b.onclick=()=>lockSheet(b.dataset.lk));
   app.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{const id=b.dataset.th;LOCAL.theme=LOCAL.theme===id?'':id;saveLocal();const [x,y]=mid(b);vAlbum();if(LOCAL.theme){burst(x,y,12);toast('g1_cuoi_vui','Đổi xong! Cả app giờ mặc đồ '+STK.find(p=>p.id===id).name+' nè~',2400)}else toast('g1_cuoi_vui','Về sticker mặc định rồi nha',1800)});
-  if(fresh.size){LOCAL.fresh=[];saveLocal()}
+  if(fresh.size){LOCAL.fresh3=[];saveLocal()}
   setTimeout(showReveal,350)}
-function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const d=new Date(S.stk[id]);
+function lockSheet(id){const x=STK_ALL.find(s=>s.id===id);if(!x||S.own[id])return;const bal=starBal();
+  openSheet('Sticker đang khóa',`<div class="row" style="justify-content:space-between"><h2>${x.price?'Mua sticker':'Nhiệm vụ'}</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+   <img class="sbig lockbig" src="${SIMG(id)}" alt="">
+   ${x.price?`<p style="margin:0;text-align:center;font-weight:900;font-size:1.2rem">★ ${x.price} sao</p><p class="muted" style="margin:0;text-align:center;font-weight:700">Em đang có ${bal} sao${bal<x.price?`, còn thiếu ${x.price-bal} sao`:''}</p>
+     <button class="btn wide" id="buy" ${bal<x.price?'disabled':''}>${bal<x.price?'Chưa đủ sao':'Mua và mở quà'}</button>`
+   :`<p style="margin:0;text-align:center;font-weight:900;font-size:1.1rem">${esc(x.quest)}</p><p class="muted" style="margin:0;text-align:center;font-weight:700">Làm xong là sticker tự mở nha</p>`}`);
+  $('#buy')&&($('#buy').onclick=()=>buySticker(id))}
+function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const d=new Date(S.own[id]);
   openSheet(s.cap,`<div class="row" style="justify-content:space-between"><h2>${esc(s.cap)}</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
    <img class="sbig" src="${SIMG(id)}" alt="${esc(s.cap)}">
    <p class="muted" style="margin:0;text-align:center;font-weight:700">Bộ ${esc(s.p.name)} · nhận ngày ${d.toLocaleDateString('vi-VN')}</p>
    <button class="btn wide" id="shr">Lưu / chia sẻ sticker</button>`);
-  const img=$('.sbig');img.onclick=()=>{const [x,y]=mid(img);burst(x,y,10);img.classList.remove('jump');void img.offsetWidth;img.classList.add('jump')};
+  track('sview');const img=$('.sbig');img.onclick=()=>{const [x,y]=mid(img);burst(x,y,10);img.classList.remove('jump');void img.offsetWidth;img.classList.add('jump')};
   $('#shr').onclick=async()=>{try{const bl=await (await fetch(SIMG(id))).blob();
       const png=await new Promise(r=>{const c=document.createElement('canvas'),im=new Image();im.onload=()=>{c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);c.toBlob(r,'image/png')};im.src=URL.createObjectURL(bl)});
       const f=new File([png],'sticker-'+id+'.png',{type:'image/png'});
-      if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}}catch(e){}}}
+      track('share');if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}}catch(e){}}}
 
 /* ---------- nhắc học (Web Push) ---------- */
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
