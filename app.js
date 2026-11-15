@@ -458,7 +458,6 @@ function renderCard(){gradeLock=false;
   $('#quit').onclick=()=>{sessionDeck=null;go('home')};
   $('#show').onclick=reveal;
   bindSwipe($('#fl'));
-  if(c.type==='kana')say(c.k.ch);
   if(!breakShown&&sessStart&&Date.now()-sessStart>20*60000){breakShown=true;toast('na04_met','Học 20 phút rồi, nghỉ 5 phút uống nước nha em!',3200)}
 }
 function bindSwipe(fl){let x0=0,y0=0,dx=0,drag=false,moved=false;
@@ -501,7 +500,7 @@ function reveal(){if(shown)return;shown=true;const id=Q[qi],c=byId(id),fl=$('#fl
   if(c.type==='kanji'){const k=c.kj;back=`<div class="big">${esc(k.k)}</div><div class="ans">${esc(k.hv)} · ${esc(k.mean)}</div><div class="sub jp">Kun: ${esc(k.kun||'–')}<br>On: ${esc(k.on||'–')}</div>`}
   if(c.type==='kword'){const hv=hanviet(plain(c.segs));back=`<div class="mid">${rubyHTML(c.segs,'show')}</div><div class="ans">${esc(c.vn)}</div><div class="sub">${hv?'Hán Việt: '+esc(hv):''}</div>${spk(reading(c.segs))}`;voice=reading(c.segs)}
   if(c.type==='gram'){const z=cloze(c);back=`<div class="sub" style="font-weight:800;color:var(--ink)">${esc(c.e.vn)}</div><div class="mid" style="font-size:1.45rem">${z.full||z.html}</div><div class="sub jp">${esc(c.g.title)}</div>${spk(reading(c.e.jp))}`;voice=reading(c.e.jp)}
-  fl.innerHTML=back+'<span class="swl">Quên</span><span class="swr">Được</span>';fl.classList.remove('in','flip');void fl.offsetWidth;fl.classList.add('flip');if(voice)say(voice);
+  fl.innerHTML=back+'<span class="swl">Quên</span><span class="swr">Được</span>';fl.classList.remove('in','flip');void fl.offsetWidth;fl.classList.add('flip');
   const card=cardOf(id);let labels=['','','',''];let rec=null;
   if(hasF){const now=new Date();rec=F.repeat(card,now);labels=[1,2,3,4].map(r=>ivl(rec[r].card.due-now))}
   $('#act').innerHTML=`<div class="grades">${['Quên','Khó','Được','Dễ'].map((l,i)=>`<button class="grade g${i+1}" data-r="${i+1}">${l}<small>${labels[i]}</small></button>`).join('')}</div>`;
