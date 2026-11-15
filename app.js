@@ -208,7 +208,7 @@ document.addEventListener('click',e=>{const r=e.target.closest('ruby.hide');if(r
 let jaVoice=null;
 function loadVoices(){try{const v=speechSynthesis.getVoices();jaVoice=v.find(x=>/ja[-_]JP/i.test(x.lang))||v.find(x=>/^ja/i.test(x.lang))||null}catch(e){}}
 try{loadVoices();speechSynthesis.onvoiceschanged=loadVoices}catch(e){}
-function say(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(t).replace(/[　\s]+/g,' ').replace(/[～~]/g,''));u.lang='ja-JP';if(jaVoice)u.voice=jaVoice;u.rate=.85;speechSynthesis.speak(u)}catch(e){toast('n02_nghiem_tuc','Máy này chưa có giọng đọc tiếng Nhật nha em')}}
+function say(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(t).replace(/[　\s]+/g,' ').replace(/[～~]/g,''));u.lang='ja-JP';if(jaVoice)u.voice=jaVoice;u.rate=.85;duckFor(u);speechSynthesis.speak(u)}catch(e){toast('n02_nghiem_tuc','Máy này chưa có giọng đọc tiếng Nhật nha em')}}
 let revealAt=0;
 document.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(b){e.stopPropagation();if(Date.now()-revealAt<450)return;say(b.dataset.say);track('say')}});
 const spk=t=>`<button class="spk" data-say="${esc(t)}" aria-label="Nghe phát âm">${ICON.spk}</button>`;
@@ -271,16 +271,16 @@ function enterFx(){app.classList.remove('enter');void app.offsetWidth;app.classL
   if(!RM)app.querySelectorAll('.stat b').forEach(countUp)}
 function countUp(el){const m=el.textContent.match(/^(\d+)(.*)$/);if(!m)return;const to=+m[1],suf=m[2];if(to<2)return;const t0=performance.now(),D=600;
   const step=t=>{const k=Math.min(1,(t-t0)/D);el.textContent=Math.round(to*(1-Math.pow(1-k,3)))+suf;if(k<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
-function burst(x,y,n=8,chars='♥♥★'){if(RM)return;const f=document.createDocumentFragment();
+function burst(x,y,n=8,chars='♥♥★'){sfx('ok');if(RM)return;const f=document.createDocumentFragment();
   for(let i=0;i<n;i++){const e=document.createElement('i');e.className='fx';e.textContent=chars[i%chars.length];const a=Math.PI*2*i/n+Math.random()*.6,d=50+Math.random()*60;
     e.style.cssText=`left:${x}px;top:${y}px;--dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d-30}px;--r:${(Math.random()*80-40)|0}deg;color:${['var(--pink)','var(--peach)','#FFC94D'][i%3]}`;
     e.addEventListener('animationend',()=>e.remove());f.appendChild(e)}document.body.appendChild(f)}
-function rain(n=18){if(RM)return;const f=document.createDocumentFragment();for(let i=0;i<n;i++){const e=document.createElement('i');e.className='fx rain';e.textContent='♥★✿'[i%3];
+function rain(n=18){sfx('yay');if(RM)return;const f=document.createDocumentFragment();for(let i=0;i<n;i++){const e=document.createElement('i');e.className='fx rain';e.textContent='♥★✿'[i%3];
   e.style.cssText=`left:${Math.random()*100}vw;top:-24px;--d:${(.9+Math.random()*.9).toFixed(2)}s;--dl:${(Math.random()*.5).toFixed(2)}s;color:${['var(--pink)','var(--peach)','#FFC94D'][i%3]}`;
   e.addEventListener('animationend',()=>e.remove());f.appendChild(e)}document.body.appendChild(f)}
 const mid=el=>{const r=el.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]};
 function floatText(el,txt){if(RM||!el)return;const [x,y]=mid(el);const e=document.createElement('i');e.className='fx up';e.textContent=txt;e.style.cssText=`left:${x}px;top:${y}px`;e.addEventListener('animationend',()=>e.remove());document.body.appendChild(e)}
-function shake(el){if(!el)return;el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake')}
+function shake(el){sfx('no');if(!el)return;el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake')}
 document.addEventListener('visibilitychange',()=>document.documentElement.classList.toggle('paused',document.hidden));
 function hideSplash(){const sp=$('#splash');if(!sp)return;const wait=Math.max(0,1300-performance.now());setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),450)},wait)}
 
@@ -508,7 +508,7 @@ function cloze(c){
       return {key:hit,html:rubyHTML(before)+`<span class="blank">${esc(hit)}</span>`+rubyHTML(after),full:rubyHTML(before)+`<span class="hl">${esc(hit)}</span>`+rubyHTML(after)}}
   }
   return {key:'',html:rubyHTML(c.e.jp)}}
-function reveal(){if(shown)return;shown=true;revealAt=Date.now();const id=Q[qi],c=byId(id),fl=$('#fl');let back='',voice='';
+function reveal(){if(shown)return;shown=true;sfx('flip');revealAt=Date.now();const id=Q[qi],c=byId(id),fl=$('#fl');let back='',voice='';
   if(c.type==='kana')back=`<div class="big">${esc(c.k.ch)}</div><div class="ans">${esc(c.k.ro)}</div>${spk(c.k.ch)}`;
   if(c.type==='vocab'){const hv=hanviet(c.w.kanji);back=`<div class="mid">${rubyHTML(wordSegs(c.w),'show')}</div><div class="ans">${esc(c.w.vn)}</div><div class="sub">${esc(c.w.kana)} · ${esc(c.w.ro)}${hv?'<br>Hán Việt: '+esc(hv):''}</div>${spk(c.w.kana)}`;voice=c.w.kana}
   if(c.type==='kanji'){const k=c.kj;back=`<div class="big">${esc(k.k)}</div><div class="ans">${esc(k.hv)} · ${esc(k.mean)}</div><div class="sub jp">Kun: ${esc(k.kun||'–')}<br>On: ${esc(k.on||'–')}</div>`}
@@ -591,6 +591,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
+  <div class="card stack" id="sound"></div>
   <div class="card stack" id="remind"></div>
   <div class="card stack"><h3>Đồng bộ</h3><p class="muted" style="margin:0;font-size:.9rem">Tiến độ tự lưu lên mạng bằng mã học. Mất mạng vẫn học được, có mạng lại thì app tự gửi lên.</p>
     <div class="row"><button class="btn ghost" id="sn">Đồng bộ ngay</button><button class="btn ghost" id="rc">Tải lại bài học</button></div>
@@ -599,7 +600,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();vMe()};
   $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();vMe()});
   $('#vt').onclick=()=>say('はじめまして。どうぞ　よろしく。');
-  remindCard();
+  soundCard();remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
   $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;logout();go('home')};
@@ -647,7 +648,7 @@ function checkStickers(){if(isT()||!CODE)return [];const got=[];
 function track(k,max){if(isT()||!CODE)return;S.ev=S.ev||{};if(max!=null){if(max<=(S.ev[k]||0))return;S.ev[k]=max}else S.ev[k]=(S.ev[k]||0)+1;
   save();const g=checkStickers();if(!g.length)return;if(/^#(review|game-)/.test(location.hash))setTimeout(()=>stkPing(g[0]),300);else setTimeout(showReveal,500)}
 function buySticker(id){const s=STK_ALL.find(x=>x.id===id);if(!s||!s.price||S.own[id])return;if(starBal()<s.price)return toast('n05_doi',`Còn thiếu ${s.price-starBal()} sao nữa nha em~`);
-  S.buy=S.buy||{};S.buy[id]=s.price;S.own[id]=Date.now();gotNew([id]);sync();closeModal();showReveal()}
+  sfx('coin');S.buy=S.buy||{};S.buy[id]=s.price;S.own[id]=Date.now();gotNew([id]);sync();closeModal();showReveal()}
 // thông báo nhỏ khi đang ôn, không chặn tay
 function stkPing(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const el=document.createElement('div');el.className='stkping';el.innerHTML=`<img src="${SIMG(id)}" alt=""><span><b>Sticker mới!</b><br>Học xong mở quà nha</span>`;
   el.addEventListener('animationend',e=>{if(e.animationName==='pingOut')el.remove()});document.body.appendChild(el)}
@@ -660,7 +661,7 @@ function showReveal(){const q=LOCAL.pend3||[];if(!q.length||isT()||$('#gift')||/
       <div class="gcap"><b>${esc(s.cap)}</b><span>Bộ ${esc(s.p.name)} · ${STK_ALL.filter(x=>x.p===s.p&&S.own[x.id]).length}/${s.p.items.length}</span></div>
       <button class="btn wide gnext" id="gnext">${i<n-1?'Mở quà tiếp':'Cất vào bộ sưu tập'}</button></div>`;
     const b=$('#gbox');let opened=false;const im=new Image();im.src=SIMG(id);
-    const open=()=>{if(opened)return;opened=true;root.classList.add('opened');const [x,y]=mid(b);setTimeout(()=>{burst(x,y,16,'♥★✿♥');rain(26)},260)};
+    const open=()=>{if(opened)return;opened=true;sfx('gift');root.classList.add('opened');const [x,y]=mid(b);setTimeout(()=>{burst(x,y,16,'♥★✿♥');rain(26)},260)};
     b.onclick=open;$('#gnext').onclick=()=>{if(!opened)return open();next()};root.classList.remove('opened');
   };
   const next=()=>{i++;if(i<n)step();else{LOCAL.pend3=[];saveLocal();root.classList.add('bye');setTimeout(()=>root.remove(),250);if(location.hash!=='#album')go('album');else vAlbum()}};
@@ -709,6 +710,56 @@ function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const 
       const png=await new Promise(r=>{const c=document.createElement('canvas'),im=new Image();im.onload=()=>{c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);c.toBlob(r,'image/png')};im.src=URL.createObjectURL(bl)});
       const f=new File([png],'sticker-'+id+'.png',{type:'image/png'});
       track('share');if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}}catch(e){}}}
+
+/* ---------- âm thanh: nhạc nền hộp nhạc + hiệu ứng, tự sinh bằng Web Audio (không cần file) ---------- */
+// Cài đặt âm thanh lưu riêng trên từng máy (LOCAL), không đụng dữ liệu học.
+const SND=Object.assign({music:LOCAL.role!=='teacher',mv:.35,fx:true,fv:.6},LOCAL.snd||{});
+let AC=null,mGain=null,fGain=null,mTimer=null,mNext=0,mStep=0,duck=1;
+const NOTE=n=>440*Math.pow(2,(n-69)/12);
+function acInit(){if(AC)return AC;const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;AC=new C();
+  const comp=AC.createDynamicsCompressor();comp.connect(AC.destination);
+  // tiếng vang nhẹ cho nhạc
+  const dl=AC.createDelay(1);dl.delayTime.value=.33;const fb=AC.createGain();fb.gain.value=.28;const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2200;
+  mGain=AC.createGain();mGain.connect(comp);mGain.connect(dl);dl.connect(lp);lp.connect(fb);fb.connect(dl);lp.connect(comp);
+  fGain=AC.createGain();fGain.connect(comp);applyVol();return AC}
+function applyVol(){if(!AC)return;const t=AC.currentTime;mGain.gain.setTargetAtTime(SND.music?SND.mv*.5*duck:0,t,.15);fGain.gain.setTargetAtTime(SND.fx?SND.fv:0,t,.02)}
+function tone(dest,f,t,dur,vol,type='sine'){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(dest);o.start(t);o.stop(t+dur+.05)}
+// hộp nhạc: vòng hợp âm C–Am–F–G, giai điệu ngũ cung chọn ngẫu nhiên theo hợp âm, 76 nhịp/phút
+const CH=[[60,64,67],[57,60,64],[53,57,60],[55,59,62]],PENTA=[72,74,76,79,81,84];
+function musicTick(){if(!AC||AC.state!=='running')return;const beat=60/76/2;
+  while(mNext<AC.currentTime+.4){const bar=Math.floor(mStep/8)%4,pos=mStep%8,ch=CH[bar],t=mNext;
+    if(pos===0)tone(mGain,NOTE(ch[0]-12),t,beat*7,.16,'triangle');
+    if(pos%2===0)tone(mGain,NOTE(ch[(pos/2)%3]),t,beat*2.5,.07,'sine');
+    if(Math.random()<(pos%2?.35:.6)){const cand=PENTA.filter(n=>ch.some(c=>(n-c)%12===0)||Math.random()<.3);const n=pick(cand.length?cand:PENTA);tone(mGain,NOTE(n),t,beat*3,.09,'sine');tone(mGain,NOTE(n+12),t,beat*1.2,.02,'sine')}
+    mNext+=beat;mStep++}}
+function musicOn(){if(!SND.music||document.hidden||!acInit()||mTimer)return;if(AC.state!=='running')return;mNext=AC.currentTime+.1;mTimer=setInterval(musicTick,120);musicTick()}
+function musicOff(){clearInterval(mTimer);mTimer=null}
+// hiệu ứng ngắn
+function sfx(k){if(!SND.fx)return;if(!acInit()||AC.state!=='running')return;const t=AC.currentTime+.01;
+  if(k==='ok'){tone(fGain,NOTE(84),t,.18,.18);tone(fGain,NOTE(91),t+.07,.28,.16)}
+  else if(k==='no'){tone(fGain,NOTE(64),t,.16,.14,'triangle');tone(fGain,NOTE(59),t+.09,.26,.12,'triangle')}
+  else if(k==='flip'){tone(fGain,NOTE(81),t,.07,.08,'triangle')}
+  else if(k==='yay'){[72,76,79,84].forEach((n,i)=>tone(fGain,NOTE(n),t+i*.08,.35,.14))}
+  else if(k==='gift'){[84,88,91,96,100].forEach((n,i)=>tone(fGain,NOTE(n),t+i*.06,.4,.11));tone(fGain,NOTE(72),t,.6,.1,'triangle')}
+  else if(k==='coin'){tone(fGain,NOTE(83),t,.08,.14,'square');tone(fGain,NOTE(88),t+.07,.3,.12,'square')}}
+function sndSave(){LOCAL.snd=Object.assign({},SND);saveLocal();applyVol();if(SND.music)musicOn();else musicOff()}
+// iPhone chỉ cho phát âm thanh sau lần chạm đầu tiên
+function unlockAudio(){if(!acInit())return;if(AC.state!=='running')AC.resume().then(musicOn).catch(()=>{});else musicOn()}
+['pointerdown','keydown'].forEach(ev=>addEventListener(ev,unlockAudio,{passive:true}));
+addEventListener('visibilitychange',()=>{if(document.hidden){musicOff();AC&&AC.suspend&&AC.suspend().catch(()=>{})}else if(AC){AC.resume().then(musicOn).catch(()=>{})}});
+function duckFor(u){duck=.25;applyVol();const up=()=>{duck=1;applyVol()};u.onend=up;u.onerror=up;setTimeout(up,6000)}
+function soundCard(){const el=$('#sound');if(!el)return;
+  el.innerHTML=`<h3>Âm thanh</h3>
+   <div class="switch"><span><b>Nhạc nền</b><br><span class="muted" style="font-size:.85rem">Nhạc hộp nhạc nhẹ nhàng khi học</span></span><button class="tg" role="switch" id="smu" aria-checked="${SND.music}" aria-label="Nhạc nền"></button></div>
+   ${SND.music?`<label class="field vol" for="smv">Âm lượng nhạc nền<input id="smv" type="range" min="5" max="100" step="5" value="${Math.round(SND.mv*100)}"></label>`:''}
+   <div class="switch"><span><b>Hiệu ứng âm thanh</b><br><span class="muted" style="font-size:.85rem">Tiếng đúng, sai, lật thẻ, mở quà</span></span><button class="tg" role="switch" id="sfx" aria-checked="${SND.fx}" aria-label="Hiệu ứng âm thanh"></button></div>
+   ${SND.fx?`<label class="field vol" for="sfv">Âm lượng hiệu ứng<input id="sfv" type="range" min="5" max="100" step="5" value="${Math.round(SND.fv*100)}"></label>`:''}
+   <p class="muted" style="margin:0;font-size:.82rem">iPhone đang để chế độ im lặng thì có thể không nghe nhạc. Lúc đọc tiếng Nhật, nhạc tự nhỏ lại.</p>`;
+  $('#smu').onclick=()=>{SND.music=!SND.music;sndSave();soundCard()};
+  $('#sfx').onclick=()=>{SND.fx=!SND.fx;sndSave();soundCard();sfx('ok')};
+  $('#smv')&&($('#smv').oninput=e=>{SND.mv=+e.target.value/100;sndSave()});
+  $('#sfv')&&($('#sfv').onchange=e=>{SND.fv=+e.target.value/100;sndSave();sfx('ok')})}
 
 /* ---------- nhắc học (Web Push) ---------- */
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
