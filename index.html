@@ -283,6 +283,11 @@ ruby.hide rt{visibility:hidden}
 .stkping{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;z-index:65;display:flex;align-items:center;gap:10px;background:var(--surface);border:2px solid var(--pink);border-radius:18px;padding:6px 14px 6px 6px;box-shadow:var(--shadow);font-size:.88rem;line-height:1.25;animation:pingIn .4s cubic-bezier(.34,1.4,.64,1) both,pingOut .3s 2.6s ease-in forwards;pointer-events:none}
 .stkping img{width:48px;height:48px;object-fit:contain;animation:wiggle .8s .3s ease-in-out 2}
 .stkping b{color:var(--pink-deep)}
+.swguide{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;font-weight:900}
+.swguide .sg{display:flex;flex-direction:column;line-height:1.2}
+.swguide .l{color:var(--again)}.swguide .r{color:var(--good);text-align:right;align-items:flex-end}
+.swguide .m{color:var(--muted);font-size:.85rem;text-align:center}
+.swguide small{font-size:.75rem;color:var(--muted);font-weight:700}
 </style>
 </head>
 <body>

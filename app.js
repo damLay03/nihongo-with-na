@@ -323,7 +323,7 @@ function vHome(){nav('home');
       <div class="row" style="justify-content:space-between"><h2>Ôn tập hôm nay</h2><span class="pill">${due} cần ôn · ${nl} mới</span></div>
       <button class="btn wide" id="start" ${due+nl?'':'disabled'}>${due+nl?'Bắt đầu ôn':'Hết thẻ rồi'}</button>
       ${due+nl?'':(newIds(1).length?'<button class="btn ghost wide" id="extra">Học thêm 5 thẻ mới</button>':'')}
-      <p class="muted" style="margin:0;font-size:.88rem">Mỗi thẻ có 4 nút: Quên, Khó, Được, Dễ. App tự tính ngày ôn lại theo đường cong quên, giống Anki.</p>
+      <p class="muted" style="margin:0;font-size:.88rem">Chạm thẻ để lật, vuốt trái là Quên, vuốt phải là Được. App tự tính ngày ôn lại theo đường cong quên, giống Anki.</p>
     </div>
     <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.stk[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ôn thêm để mở quà</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
@@ -459,9 +459,8 @@ function renderCard(){gradeLock=false;
   shown=false;const isNew=!S.cards[id];
   const pct=Math.round(qi/Q.length*100);
   app.innerHTML=`<div class="rv"><div class="row" style="flex-wrap:nowrap"><button class="back" id="quit" aria-label="Dừng ôn">✕</button><div class="progress" aria-label="Tiến độ"><i style="width:${pct}%"></i></div><span class="pill">${Q.length-qi}</span></div>
-    <div class="card flash in" id="fl">${front(c,isNew)}<span class="swl">Quên</span><span class="swr">Được</span></div><p class="swhint">Chạm thẻ để lật · Vuốt trái: Quên · Vuốt phải: Được</p><div id="act"><button class="btn wide" id="show">Xem đáp án</button></div></div>`;
+    <div class="card flash in" id="fl">${front(c,isNew)}<span class="swl">Quên</span><span class="swr">Được</span></div><div id="act" class="swguide"><span class="sg l">← Quên</span><span class="sg m">Chạm thẻ để lật</span><span class="sg r">Được →</span></div></div>`;
   $('#quit').onclick=()=>{sessionDeck=null;go('home')};
-  $('#show').onclick=reveal;
   bindSwipe($('#fl'));
   if(!breakShown&&sessStart&&Date.now()-sessStart>20*60000){breakShown=true;toast('na04_met','Học 20 phút rồi, nghỉ 5 phút uống nước nha em!',3200)}
 }
@@ -476,7 +475,9 @@ function bindSwipe(fl){let x0=0,y0=0,dx=0,drag=false,moved=false;
   fl.addEventListener('click',e=>{if(moved||shown||e.target.closest('button,ruby'))return;e.stopPropagation();reveal()});
   fl.addEventListener('pointerup',end);fl.addEventListener('pointercancel',end);
 }
-function swipeGrade(r){if(!shown)reveal();const b=$('.grade.g'+r);if(b)b.click()}
+let curRec=null;
+addEventListener('keydown',e=>{if(location.hash!=='#review'||!$('#fl')||gradeLock)return;if(e.key===' '||e.key==='Enter'){e.preventDefault();reveal()}else if(e.key==='ArrowLeft')swipeGrade(1);else if(e.key==='ArrowRight')swipeGrade(3)});
+function swipeGrade(r){if(!shown)reveal();grade(Q[qi],byId(Q[qi]),r,curRec)}
 function kindLabel(c){const d=deckOf(c.deck);return {kana:'Bảng chữ',vocab:'Từ vựng '+d.name,gram:'Ngữ pháp '+d.name,kanji:'Chữ Kanji · Unit '+d.no,kword:'Từ Kanji · Unit '+d.no}[c.type]}
 function front(c,isNew){const tag=`<div class="kind">${isNew?'Thẻ mới · ':''}${kindLabel(c)}</div>`;
   if(c.type==='kana')return tag+`<div class="big">${esc(c.k.ch)}</div><div class="sub">Chữ này đọc là gì?</div>`;
@@ -509,8 +510,8 @@ function reveal(){if(shown)return;shown=true;revealAt=Date.now();const id=Q[qi],
   fl.innerHTML=back+'<span class="swl">Quên</span><span class="swr">Được</span>';fl.classList.remove('in','flip');void fl.offsetWidth;fl.classList.add('flip');
   const card=cardOf(id);let labels=['','','',''];let rec=null;
   if(hasF){const now=new Date();rec=F.repeat(card,now);labels=[1,2,3,4].map(r=>ivl(rec[r].card.due-now))}
-  $('#act').innerHTML=`<div class="grades">${['Quên','Khó','Được','Dễ'].map((l,i)=>`<button class="grade g${i+1}" data-r="${i+1}">${l}<small>${labels[i]}</small></button>`).join('')}</div>`;
-  $('#act').querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>grade(id,c,+b.dataset.r,rec));
+  curRec=rec;
+  $('#act').innerHTML=`<span class="sg l">← Quên${labels[0]?'<small>'+labels[0]+'</small>':''}</span><span class="sg m">Vuốt thẻ</span><span class="sg r">Được →${labels[2]?'<small>'+labels[2]+'</small>':''}</span>`;
 }
 let gradeLock=false;
 function grade(id,c,r,rec){if(gradeLock)return;gradeLock=true;const isNew=!S.cards[id];const t=today();
@@ -624,7 +625,7 @@ function checkStickers(){if(isT()||!CODE)return [];const got=[];const mv={};
 function stkPing(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const el=document.createElement('div');el.className='stkping';el.innerHTML=`<img src="${SIMG(id)}" alt=""><span><b>Sticker mới!</b><br>Học xong mở quà nha</span>`;
   el.addEventListener('animationend',e=>{if(e.animationName==='pingOut')el.remove()});document.body.appendChild(el)}
 // màn mở quà: hộp quà rung, chạm để lật ra sticker
-function showReveal(){const q=LOCAL.pend||[];if(!q.length||isT()||$('#gift'))return false;let i=0;const n=q.length;
+function showReveal(){const q=LOCAL.pend||[];if(!q.length||isT()||$('#gift')||/^#(review|game-)/.test(location.hash))return false;let i=0;const n=q.length;
   const root=document.createElement('div');root.id='gift';root.className='gift';root.setAttribute('role','dialog');root.setAttribute('aria-label','Sticker mới');document.body.appendChild(root);
   const step=()=>{const id=q[i],s=STK_ALL.find(x=>x.id===id);if(!s){next();return}
     root.innerHTML=`<div class="gin"><p class="gt">${n>1?`Quà ${i+1}/${n}`:'Em có quà nè!'}</p>
