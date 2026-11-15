@@ -1,0 +1,26 @@
+name: Nhắc học
+on:
+  schedule:
+    - cron: '2 * * * *'   # mỗi giờ; script tự kiểm tra giờ nhắc Na đã chọn
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Gửi thử ngay (bỏ qua giờ hẹn)'
+        type: boolean
+        default: true
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+        working-directory: scripts
+      - run: node remind.mjs
+        working-directory: scripts
+        env:
+          STUDY_CODE: ${{ secrets.STUDY_CODE }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}

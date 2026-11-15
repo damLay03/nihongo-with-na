@@ -3,3 +3,4 @@
 secret*.json
 *-firebase-adminsdk-*.json
 /content/
+node_modules/

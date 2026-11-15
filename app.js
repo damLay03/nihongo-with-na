@@ -24,6 +24,8 @@ const KEY='nwn-v1';
 const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0};
 let S=Object.assign(structuredClone(DEF),ls.get(KEY,{}));
 let LOCAL=Object.assign({hello:false,role:'student'},ls.get('nwn-local',{}));
+if(!LOCAL.dev){LOCAL.dev=Math.random().toString(36).slice(2,10);ls.set('nwn-local',LOCAL)}
+const VAPID='BFVtX4LPH5MpRleWetTAzmZZxe1CsqqJzRxVX-XYf7K3GbKl_Za-8D8N9vl5tKFtz8GCoTBYwtxxX93tqO8vSWg';
 function saveLocal(){ls.set('nwn-local',LOCAL)}
 function save(){ls.set(KEY,S);LEARNED=null;schedulePush()}
 function today(){const k=dkey();return S.log[k]||(S.log[k]={rev:0,nw:0,secs:0,ok:0})}
@@ -78,6 +80,7 @@ function merge(a,b){
   const seen=new Set(o.games.map(g=>g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'')));
   (b.games||[]).forEach(g=>{const k=g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'');if(!seen.has(k)){seen.add(k);o.games.push(g)}});
   o.games.sort((x,y)=>(x.at||0)-(y.at||0));o.games=o.games.slice(-200);
+  o.push=Object.assign({},o.push||{});for(const [k,v] of Object.entries(b.push||{}))if(!o.push[k]||(v.at||0)>(o.push[k].at||0))o.push[k]=v;
   if((b.setAt||0)>(o.setAt||0)){o.unlocked=b.unlocked;o.newPerDay=b.newPerDay;o.pin=b.pin;o.setAt=b.setAt}
   return o;
 }
@@ -511,6 +514,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
     <label class="field" for="npd">Số thẻ mới mỗi ngày (0 = không giới hạn)<input id="npd" type="number" min="0" max="500" value="${S.newPerDay}"></label>
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
+  <div class="card stack" id="remind"></div>
   <div class="card stack"><h3>Đồng bộ</h3><p class="muted" style="margin:0;font-size:.9rem">Tiến độ tự lưu lên mạng bằng mã học. Mất mạng vẫn học được, có mạng lại thì app tự gửi lên.</p>
     <div class="row"><button class="btn ghost" id="sn">Đồng bộ ngay</button><button class="btn ghost" id="rc">Tải lại bài học</button></div>
     <button class="btn ghost" id="lo">Thoát mã trên máy này</button></div>
@@ -518,9 +522,32 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   <p class="foot">${tot} thẻ đã gặp · Nét viết từ KanjiVG (CC BY-SA 3.0) · Thuật toán FSRS (ts-fsrs)</p></div>`;
   $('#npd').onchange=e=>{S.newPerDay=Math.max(0,Math.min(500,Math.round(+e.target.value)||0));touchSettings();save()};
   $('#vt').onclick=()=>say('はじめまして。どうぞ　よろしく。');
+  remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
   $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;['nwn-code','nwn-ckey','nwn-content',KEY].forEach(ls.del);CODE='';S=structuredClone(DEF);CONTENT={key:'',at:0,docs:{}};buildDecks();go('home')};
+}
+
+/* ---------- nhắc học (Web Push) ---------- */
+const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const pushOK=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+function b64u(s){const p='='.repeat((4-s.length%4)%4);const b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0))}
+function remindCard(){const el=$('#remind');if(!el)return;const me=(S.push||{})[LOCAL.dev];const on=!!(me&&me.sub&&window.Notification&&Notification.permission==='granted');
+  const hours=[...Array(17)].map((_,i)=>i+7);const hr=me?me.hour:20;
+  let body;
+  if(!pushOK()||!standalone()&&/iPhone|iPad/.test(navigator.userAgent))body=`<p class="muted" style="margin:0;font-size:.9rem">Để nhận thông báo trên iPhone: mở app bằng Safari, bấm Chia sẻ › <b>Thêm vào MH chính</b>, rồi mở app từ icon đó và vào lại đây. Cần iOS 16.4 trở lên.</p>`;
+  else body=`<label class="field" for="rh">Giờ nhắc mỗi ngày<select id="rh" style="font:inherit;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--surface);color:var(--ink)">${hours.map(h=>`<option value="${h}" ${h===hr?'selected':''}>${h}:00</option>`).join('')}</select></label>
+    <button class="btn ${on?'ghost':''}" id="rb">${on?'Tắt nhắc học':'Bật nhắc học'}</button>
+    <p class="muted" style="margin:0;font-size:.85rem">${on?'Đang bật. ':''}Hôm nào em học rồi thì anh không nhắc nữa.</p>`;
+  el.innerHTML=`<h3>Nhắc học</h3>`+body;
+  const rh=$('#rh');if(rh)rh.onchange=()=>{if(me){me.hour=+rh.value;me.at=Date.now();save()}};
+  const rb=$('#rb');if(rb)rb.onclick=async()=>{
+    if(on){S.push[LOCAL.dev]={at:Date.now(),off:true};save();try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();sub&&sub.unsubscribe()}catch(e){}toast('n05_doi','Tắt rồi… nhưng nhớ tự giác học nha em!');return remindCard()}
+    try{const perm=await Notification.requestPermission();if(perm!=='granted')return toast('na03_boi_roi','Em cần bấm Cho phép thì anh mới nhắc được nha.',3000);
+      const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID)});
+      S.push=S.push||{};S.push[LOCAL.dev]={sub:sub.toJSON(),hour:+$('#rh').value,role:LOCAL.role,at:Date.now()};save();sync();
+      toast('n06_nhac_gio',`Ok! ${$('#rh').value} giờ mỗi ngày anh nhắc em nha~`,2600);remindCard()}
+    catch(e){toast('na03_boi_roi','Chưa bật được thông báo trên máy này.',3000)}};
 }
 let teacherOK=false;
 function vTeacher(){nav('me');
