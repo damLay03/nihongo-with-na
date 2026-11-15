@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Một "space" = tiến độ của Na. ID của document chính là mã học bí mật.
+    // Chỉ đọc đúng một document khi biết mã; không liệt kê, không tạo mới, không xóa.
+    match /spaces/{code} {
+      allow get: if request.auth != null;
+      allow update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['data', 'contentKey', 'updated'])
+        && request.resource.data.contentKey == resource.data.contentKey
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 900000;
+    }
+    // Nội dung bài học: chỉ đọc khi biết khóa nội dung (lấy từ space). Chỉ quản trị viên ghi.
+    match /content/{key}/lessons/{lesson} {
+      allow get: if request.auth != null;
+    }
+  }
+}

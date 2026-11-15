@@ -1,0 +1,5 @@
+.DS_Store
+*.json.bak
+secret*.json
+*-firebase-adminsdk-*.json
+/content/
