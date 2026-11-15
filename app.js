@@ -511,7 +511,8 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   app.innerHTML=`<div class="stack"><div class="row"><img src="${IMG('r_na')}" alt="" width="72" height="72" style="border-radius:50%"><div><h1>Lê Na</h1><div class="muted" style="font-weight:700">Học cùng anh Nhân</div>${syncBadge()}</div></div>
   <div class="stats"><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${S.streak.best}</b><span>chuỗi dài nhất</span></div><div class="stat"><b>${learnedN}</b><span>thẻ đã thuộc</span></div></div>
   <div class="card stack"><h3>Cài đặt</h3>
-    <label class="field" for="npd">Số thẻ mới mỗi ngày (0 = không giới hạn)<input id="npd" type="number" min="0" max="500" value="${S.newPerDay}"></label>
+    <div class="switch"><span><b>Giới hạn thẻ mới mỗi ngày</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Mỗi ngày học tối đa '+S.newPerDay+' thẻ mới':'Đang tắt: học bao nhiêu tùy em'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Giới hạn thẻ mới mỗi ngày"></button></div>
+    ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
   <div class="card stack" id="remind"></div>
@@ -520,7 +521,8 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
     <button class="btn ghost" id="lo">Thoát mã trên máy này</button></div>
   <a class="card lesson" href="#teacher" style="text-decoration:none;color:inherit"><img src="${IMG('r_nhan')}" alt="" width="52" height="52" style="border-radius:50%"><span><h3>Trang giáo viên</h3><span class="muted" style="font-size:.85rem">Dành cho anh Nhân: mở bài, xem tiến độ</span></span><span>›</span></a>
   <p class="foot">${tot} thẻ đã gặp · Nét viết từ KanjiVG (CC BY-SA 3.0) · Thuật toán FSRS (ts-fsrs)</p></div>`;
-  $('#npd').onchange=e=>{S.newPerDay=Math.max(0,Math.min(500,Math.round(+e.target.value)||0));touchSettings();save()};
+  $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();vMe()};
+  $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();vMe()});
   $('#vt').onclick=()=>say('はじめまして。どうぞ　よろしく。');
   remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
