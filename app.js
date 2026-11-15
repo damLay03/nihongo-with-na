@@ -201,7 +201,8 @@ let jaVoice=null;
 function loadVoices(){try{const v=speechSynthesis.getVoices();jaVoice=v.find(x=>/ja[-_]JP/i.test(x.lang))||v.find(x=>/^ja/i.test(x.lang))||null}catch(e){}}
 try{loadVoices();speechSynthesis.onvoiceschanged=loadVoices}catch(e){}
 function say(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(t).replace(/[　\s]+/g,' ').replace(/[～~]/g,''));u.lang='ja-JP';if(jaVoice)u.voice=jaVoice;u.rate=.85;speechSynthesis.speak(u)}catch(e){toast('n02_nghiem_tuc','Máy này chưa có giọng đọc tiếng Nhật nha em')}}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(b){e.stopPropagation();say(b.dataset.say)}});
+let revealAt=0;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(b){e.stopPropagation();if(Date.now()-revealAt<450)return;say(b.dataset.say)}});
 const spk=t=>`<button class="spk" data-say="${esc(t)}" aria-label="Nghe phát âm">${ICON.spk}</button>`;
 
 /* ---------- sticker & câu nói ---------- */
@@ -466,8 +467,9 @@ function bindSwipe(fl){let x0=0,y0=0,dx=0,drag=false,moved=false;
   fl.addEventListener('pointermove',e=>{if(!drag)return;dx=e.clientX-x0;const dy=e.clientY-y0;if(Math.abs(dx)>8)moved=true;if(Math.abs(dy)>Math.abs(dx)&&!moved)return;fl.style.transform=`translateX(${dx}px) rotate(${dx/18}deg)`;hint()});
   const end=e=>{if(!drag)return;drag=false;fl.style.transition='transform .25s ease';
     if(Math.abs(dx)>90){const r=dx<0?1:3;fl.style.transform=`translateX(${dx<0?-600:600}px) rotate(${dx<0?-25:25}deg)`;setTimeout(()=>swipeGrade(r),180);return}
-    fl.style.transform='';fl.classList.remove('goL','goR');
-    if(!moved&&!e.target.closest('button,ruby'))reveal()};
+    fl.style.transform='';fl.classList.remove('goL','goR')};
+  // lật bằng sự kiện click (không lật ở pointerup) để cú chạm không rơi tiếp vào nút loa vừa hiện ra
+  fl.addEventListener('click',e=>{if(moved||shown||e.target.closest('button,ruby'))return;e.stopPropagation();reveal()});
   fl.addEventListener('pointerup',end);fl.addEventListener('pointercancel',end);
 }
 function swipeGrade(r){if(!shown)reveal();const b=$('.grade.g'+r);if(b)b.click()}
@@ -494,7 +496,7 @@ function cloze(c){
       return {key:hit,html:rubyHTML(before)+`<span class="blank">${esc(hit)}</span>`+rubyHTML(after),full:rubyHTML(before)+`<span class="hl">${esc(hit)}</span>`+rubyHTML(after)}}
   }
   return {key:'',html:rubyHTML(c.e.jp)}}
-function reveal(){if(shown)return;shown=true;const id=Q[qi],c=byId(id),fl=$('#fl');let back='',voice='';
+function reveal(){if(shown)return;shown=true;revealAt=Date.now();const id=Q[qi],c=byId(id),fl=$('#fl');let back='',voice='';
   if(c.type==='kana')back=`<div class="big">${esc(c.k.ch)}</div><div class="ans">${esc(c.k.ro)}</div>${spk(c.k.ch)}`;
   if(c.type==='vocab'){const hv=hanviet(c.w.kanji);back=`<div class="mid">${rubyHTML(wordSegs(c.w),'show')}</div><div class="ans">${esc(c.w.vn)}</div><div class="sub">${esc(c.w.kana)} · ${esc(c.w.ro)}${hv?'<br>Hán Việt: '+esc(hv):''}</div>${spk(c.w.kana)}`;voice=c.w.kana}
   if(c.type==='kanji'){const k=c.kj;back=`<div class="big">${esc(k.k)}</div><div class="ans">${esc(k.hv)} · ${esc(k.mean)}</div><div class="sub jp">Kun: ${esc(k.kun||'–')}<br>On: ${esc(k.on||'–')}</div>`}
