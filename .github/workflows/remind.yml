@@ -1,7 +1,7 @@
-name: Nhắc học
+name: Nhắc học và báo thư
 on:
   schedule:
-    - cron: '2 * * * *'   # mỗi giờ; script tự kiểm tra giờ nhắc Na đã chọn
+    - cron: '*/5 * * * *'   # mỗi 5 phút: báo thư mới; nhắc học 1 lần/ngày theo giờ Na chọn
   workflow_dispatch:
     inputs:
       force:
@@ -16,6 +16,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - uses: actions/cache/restore@v4
+        with:
+          path: scripts/state.json
+          key: remind-state-${{ github.run_id }}
+          restore-keys: remind-state-
       - run: npm install --no-audit --no-fund
         working-directory: scripts
       - run: node remind.mjs
@@ -24,3 +29,8 @@ jobs:
           STUDY_CODE: ${{ secrets.STUDY_CODE }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: scripts/state.json
+          key: remind-state-${{ github.run_id }}

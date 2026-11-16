@@ -15,6 +15,6 @@ self.addEventListener('fetch',e=>{
   e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{if(r.ok||r.type==='opaque'){const c=r.clone();caches.open(V).then(x=>x.put(e.request,c))}return r})));
 });
 self.addEventListener('push',e=>{let d={};try{d=e.data.json()}catch(x){d={body:e.data&&e.data.text()}}
-  e.waitUntil(self.registration.showNotification(d.title||'Nihongo với Na',{body:d.body||'Vào học với anh nha em!',icon:'img/icon-192.png',badge:'img/icon-192.png',tag:'nhac-hoc',data:{url:d.url||'./#home'}}))});
+  e.waitUntil(self.registration.showNotification(d.title||'Nihongo với Na',{body:d.body||'Vào học với anh nha em!',icon:'img/icon-192.png',badge:'img/icon-192.png',tag:d.tag||'nhac-hoc',data:{url:d.url||'./#home'}}))});
 self.addEventListener('notificationclick',e=>{e.notification.close();const url=new URL(e.notification.data.url,self.registration.scope).href;
   e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{for(const c of cs){if('focus' in c){c.navigate(url).catch(()=>{});return c.focus()}}return clients.openWindow(url)}))});
