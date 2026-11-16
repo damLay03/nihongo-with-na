@@ -260,7 +260,7 @@ const TNAVS=[['t-home','Tổng quan','chart'],['t-msg','Lời nhắn','mail'],['
 function nav(active){if(isT()){active={lessons:'t-lessons',home:'t-home',me:'t-set'}[active]||active;$('#nav').innerHTML=TNAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=false;return}
   $('#nav').innerHTML=NAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=!CODE}
 function route(soft){routeInner(soft);if(!soft)enterFx()}
-function routeInner(soft){const h=(location.hash||'#home').slice(1);document.documentElement.dataset.view=h;applySkin();
+function routeInner(soft){const h=(location.hash||'#home').slice(1);document.documentElement.dataset.view=h;applySkin();if(!['review','game-listen','game-order','quick'].includes(h))QK=null;
   if(!CODE)return vWelcome();
   if(!soft){sessionStop();closeModal()}
   const y=soft?scrollY:0;
@@ -269,7 +269,7 @@ function routeInner(soft){const h=(location.hash||'#home').slice(1);document.doc
     if(h==='t-unlock')tUnlock();else if(h==='t-lessons'||h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));else if(h==='t-set')tSettings();else if(h==='t-msg')tMsgs();else tHome();
     if(soft)scrollTo(0,y);return}
   if(h==='home')vHome();else if(h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));
-  else if(h==='games')vGames();else if(h==='album')vAlbum();else if(h==='me')vMe();else if(h==='review')vReview();
+  else if(h==='games')vGames();else if(h==='album')vAlbum();else if(h==='me')vMe();else if(h==='review')vReview();else if(h==='quick')vQuick();
   else if(h==='game-match')gMatch();else if(h==='game-race')gRace();else if(h==='game-sushi')gSushi();else if(h==='game-listen')gListen();else if(h==='game-order')gOrder();else if(h==='game-boss')gBoss();else vHome();
   if(soft)scrollTo(0,y);
 }
@@ -358,6 +358,7 @@ function vHome(){nav('home');
     <div class="top"><div><div class="muted" style="font-weight:800">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'numeric'})}</div><h1>Nihongo với Na</h1>${syncBadge()}</div><img src="${IMG('r_na')}" alt="Na" width="52" height="52" style="border-radius:50%"></div>
     ${letterHTML()}
     <div class="hero"><img src="${IMG(img)}" alt="Sticker anh Nhân"><div class="bubble">${esc(msg)}</div></div>
+    ${quickCard()}
     ${frozen()?`<div class="card frz"><div class="frzbar"><i style="transform:scaleX(${Math.min(1,today().rev/THAW_REV)})"></i></div><span class="muted" style="font-weight:800;font-size:.85rem">❄ Gỡ băng: ${Math.min(today().rev,THAW_REV)}/${THAW_REV} thẻ hôm nay</span><button class="btn ghost wide" id="thaw">Trả ${THAW_COST} sao gỡ băng · có ${starBal()} sao</button></div>`:''}
     <div class="stats"><div class="stat"><b>${st}${frozen()?' ❄':''}</b><span>${frozen()?'đóng băng':'ngày liền'}</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${t.rev}</b><span>thẻ hôm nay</span></div></div>
     <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${G.done}/${G.total} thẻ</span></div>
@@ -372,12 +373,28 @@ function vHome(){nav('home');
     <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.own[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
-  $('#letter')&&($('#letter').onclick=openLetter);$('#thaw')&&($('#thaw').onclick=payThaw);
+  $('#letter')&&($('#letter').onclick=openLetter);$('#thaw')&&($('#thaw').onclick=payThaw);$('#qk')&&($('#qk').onclick=()=>go('quick'));
   LOCAL.hello=true;saveLocal();tripGo($('.goalcard'),G.pct);
   checkStickers();setTimeout(showReveal,700);
   $('#start')&&($('#start').onclick=()=>go('review'));
   $('#extra')&&($('#extra').onclick=()=>{S.newPerDay=today().nw+5;touchSettings();save();go('review')});
 }
+
+/* ---------- 5 phút với anh: 8 thẻ ôn, 6 câu nghe, 2 câu xếp. Xong cả 3 được 5 sao (mỗi ngày 1 lần) ---------- */
+let QK=null;
+const QSTEPS=[['review','Ôn 8 thẻ','🃏'],['game-listen','Nghe và chọn 6 câu','🎧'],['game-order','Xếp 2 câu','🧩']];
+function qState(){const k=dkey();let q=LOCAL.quick;if(!q||q.day!==k)q={day:k,done:[0,0,0],paid:0};if(!orderPool().length)q.done[2]=1;LOCAL.quick=q;return q}
+function quickCard(){if(!LOCAL.hello)return '';const q=qState(),n=q.done.filter(Boolean).length;if(q.paid)return '';
+  return `<button class="card quick" id="qk"><span class="qic">⚡</span><span style="min-width:0;text-align:left"><b>${n?'Tiếp tục 5 phút với anh':'Lười quá? 5 phút với anh thôi'}</b><br><span class="muted" style="font-size:.85rem;font-weight:700">8 thẻ, 1 ván nghe, 2 câu xếp · xong được 5 sao</span></span><span class="qdots">${q.done.map(d=>`<i class="${d?'on':''}"></i>`).join('')}</span></button>`}
+function quickDone(i){const q=qState();q.done[i]=1;saveLocal();QK=null;go('quick')}
+function vQuick(){nav('home');const q=qState();const nx=q.done.findIndex(d=>!d);
+  if(nx<0&&!q.paid){q.paid=1;saveLocal();S.stars+=5;markStudy();save();sync();setTimeout(()=>{rain(28)},200)}
+  const all=nx<0;
+  app.innerHTML=`<div class="stack"><div class="top"><button class="back" onclick="go('home')" aria-label="Về trang chính">‹</button><h2 style="flex:1">5 phút với anh</h2></div>
+   <div class="hero"><img src="${IMG(all?'08_an_mung':nx===0?'n04_co_vu':'n03_ninh_na')}" alt=""><div class="bubble">${all?'Xong hết rồi! Có 5 phút thôi mà em làm giỏi ghê. Thưởng em 5 sao nè!':nx===0?'Mình làm nhanh 3 bước thôi, xong là được 5 sao nha em!':'Giỏi quá, làm tiếp bước sau nha~'}</div></div>
+   <div class="card stack">${QSTEPS.map(([h,l,ic],i)=>`<div class="qstep${q.done[i]?' ok':i===nx?' now':''}"><span class="qic">${q.done[i]?'✓':ic}</span><b>${l}</b></div>`).join('')}</div>
+   ${all?'<a class="btn wide" href="#home">Về trang chính</a><a class="btn ghost wide" href="#games">Chơi thêm game</a>':`<button class="btn wide" id="qgo">${nx===0?'Bắt đầu':'Làm bước '+(nx+1)}</button>`}</div>`;
+  $('#qgo')&&($('#qgo').onclick=()=>{QK=nx;go(QSTEPS[nx][0])});enterFx()}
 
 /* ---------- danh sách bài ---------- */
 function deckProgress(id){const cs=deckCards(id);if(!cs.length)return 0;return cs.filter(c=>S.cards[c.id]&&S.cards[c.id].state===2).length/cs.length}
@@ -502,7 +519,8 @@ function sessionStop(){if(sessStart){today().secs+=Math.round((Date.now()-sessSt
 function vReview(){nav('home');
   const due=dueIds().filter(id=>!sessionDeck||S.cards[id].deck===sessionDeck);
   const nw=newIds(Math.min(BATCH,sessionDeck?Math.max(newLeft(),5):newLeft()),sessionDeck);
-  Q=due.concat(nw);qi=0;lastPct=0;doneCount=0;okStreak=0;breakShown=false;
+  Q=due.concat(nw);if(QK===0)Q=Q.slice(0,8);qi=0;lastPct=0;doneCount=0;okStreak=0;breakShown=false;
+  if(!Q.length&&QK===0){quickDone(0);return}
   if(!Q.length){sessionDeck=null;app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('07_lo_dau')}" alt=""><div class="bubble">Không còn thẻ nào để ôn lúc này. Em giỏi quá!</div></div><a class="btn wide" href="#home">Về trang chính</a></div>`;return}
   sessStart=Date.now();renderCard();
 }
@@ -586,7 +604,7 @@ function grade(id,c,r,rec){if(gradeLock)return;gradeLock=true;const isNew=!S.car
   if(fl&&!RM){if(r>1){const [x,y]=mid(fl);burst(x,y,r===4?12:8);floatText(fl,'+1 ★')}else shake(fl)}
   qi++;doneCount++;
   if(fl&&!fl.style.transform&&!RM){fl.style.transition='transform .2s ease-in,opacity .2s';fl.style.transform=r===1?'translateX(-120%) rotate(-12deg)':'translateX(120%) rotate(12deg)';fl.style.opacity='0';setTimeout(renderCard,r===1?260:190)}else renderCard()}
-function finish(){sessionStop();sessionDeck=null;const t=today();track('finish');sync();
+function finish(){sessionStop();sessionDeck=null;const t=today();track('finish');sync();if(QK===0){checkStickers();return quickDone(0)}
   app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('02_ban_tay_tim')}" alt=""><div class="bubble">Xong rồi! Hôm nay em ôn ${t.rev} thẻ, đúng ${t.ok}. Anh thương em nhiều lắm!</div></div>
   <div class="stats"><div class="stat"><b>${doneCount}</b><span>lượt vừa ôn</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div></div>
   ${dueIds().length||(newLeft()>0&&newIds(1).length)?'<button class="btn wide" id="more">Học tiếp</button>':''}<a class="btn ${dueIds().length||newIds(1).length?'ghost ':''}wide" href="#games">Chơi game thư giãn</a><a class="btn ghost wide" href="#home">Về trang chính</a></div>`;
@@ -621,7 +639,9 @@ function vGames(){nav('games');const all=gamePool();
 function wrongToReview(id){const c=S.cards[id];if(c&&c.state===2){c.due=new Date().toISOString();c.mod=Date.now();save()}}
 function endGame(t,s,msg,extra){const add=Math.max(1,Math.round(s/2));S.games.push(Object.assign({t,s,d:dkey(),at:Date.now()},extra||{}));S.stars+=add;markStudy();save();sync();
   app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG(pick(['08_an_mung','g6_chu_v']))}" alt=""><div class="bubble">${esc(msg)} Em được thêm ${add} ngôi sao!</div></div><button class="btn wide" id="again">Chơi lại</button><a class="btn ghost wide" href="#games">Chọn game khác</a></div>`;
-  $('#again').onclick=()=>route();enterFx();rain(14);checkStickers();setTimeout(showReveal,900)}
+  $('#again').onclick=()=>route();enterFx();rain(14);checkStickers();
+  if(QK!==null&&((QK===1&&t==='listen')||(QK===2&&t==='order'))){const i=QK;$('#again').textContent='Bước tiếp theo ›';$('#again').onclick=()=>quickDone(i);return}
+  setTimeout(showReveal,900)}
 function gMatch(){nav('games');const pool=shuffle(srcPool()).slice(0,6);if(pool.length<3)return go('games');
   const tiles=shuffle(pool.flatMap((p,i)=>[{i,txt:p.q,jp:true},{i,txt:p.a,jp:false}]));let open=[],done=0,moves=0,lock=false;const t0=Date.now();
   app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h2 style="flex:1">Lật hình ghép cặp</h2><span class="pill" id="mv">0 lượt</span></div><div class="mgrid" id="mg">${tiles.map((t,k)=>`<button class="mcard" data-k="${k}" aria-label="Thẻ úp">?</button>`).join('')}</div>`;
@@ -670,7 +690,7 @@ function gSushi(){nav('games');const pool=srcPool();if(pool.length<4)return go('
   newTarget();last=performance.now();raf=requestAnimationFrame(frame)}
 
 // Nghe và chọn: app đọc, Na chọn nghĩa (hoặc chữ kana) đúng trong 4 ô. 12 câu, 3 tim.
-function gListen(){nav('games');const pool=srcPool();if(pool.length<4)return go('games');let n=0,score=0,hearts=3,combo=0,q=null,opts=[],busy=false;const N=12;
+function gListen(){nav('games');const pool=srcPool();if(pool.length<4)return go('games');let n=0,score=0,hearts=3,combo=0,q=null,opts=[],busy=false;const N=QK===1?6:12;
   app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h2 style="flex:1">Nghe và chọn</h2><span class="pill" id="hp" style="color:var(--again)"></span><span class="pill" id="sc">1/${N}</span></div>
    <div class="card flash" style="min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px"><button class="lbig" id="ply" aria-label="Nghe lại">🔊</button><span class="muted" style="font-weight:800" id="lh">Chạm loa để nghe lại</span><span class="sushicb" id="cb"></span></div>
    <div class="opts" id="op" style="margin-top:12px"></div>${jaVoice?'':'<p class="muted" style="font-size:.85rem;text-align:center">Máy chưa có giọng tiếng Nhật nên giọng đọc có thể lạ, xem cách tải giọng ở tab Tớ.</p>'}`;
@@ -694,7 +714,7 @@ function orderPool(){const out=[];for(const d of unlockedDecks())for(const c of 
     const chunks=ch.filter(x=>x.length);if(chunks.length>=3&&chunks.length<=7&&!/[……「」]/.test(plain(c.e.jp).slice(0,2)))out.push({id:c.id,vn:c.e.vn.replace(/^\(\d\)\s*/,''),chunks,say:reading(c.e.jp)})}
   return out}
 function gOrder(){nav('games');const pool=shuffle(orderPool());if(pool.length<1){toast('na03_boi_roi','Chưa có câu mẫu nào, mở thêm bài có ngữ pháp nha.');return go('games')}
-  const N=Math.min(6,pool.length);let n=0,score=0,mist=0,cur=null,picked=[],t0=0;
+  const N=Math.min(QK===2?2:6,pool.length);let n=0,score=0,mist=0,cur=null,picked=[],t0=0;
   app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h2 style="flex:1">Xếp câu</h2><span class="pill" id="sc">1/${N}</span></div>
    <div class="card stack"><span class="muted" style="font-weight:800;font-size:.85rem">Xếp thành câu</span><b id="vn" style="font-size:1.1rem"></b><div class="oline" id="ol"></div></div>
    <div class="obank" id="ob"></div>`;
@@ -1054,7 +1074,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116195112';let needReload=false;
+const APP_V='20261116195719';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
