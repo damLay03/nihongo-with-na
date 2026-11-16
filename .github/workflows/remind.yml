@@ -7,7 +7,7 @@ on:
       force:
         description: 'Gửi thử ngay (bỏ qua giờ hẹn)'
         type: boolean
-        default: true
+        default: false
       only_msg:
         description: 'Chỉ báo thư mới (app giáo viên gọi khi gửi thư)'
         type: boolean
