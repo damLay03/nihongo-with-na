@@ -288,27 +288,47 @@ function hideSplash(){const sp=$('#splash');if(!sp)return;const wait=Math.max(0,
 
 /* ---------- màn chào: nhập mã ---------- */
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+// Tài khoản đã mở khóa trên máy này: đăng xuất vẫn giữ, lần sau chạm là vào, không cần nhập mã
+function accts(){let a=ls.get('nwn-accts',null);if(Array.isArray(a))return a;a=[];
+  try{const m=document.cookie.match(/(?:^|; )nwnac=([^;]*)/);if(m)a=JSON.parse(decodeURIComponent(m[1]))}catch(e){}return Array.isArray(a)?a:[]}
+function keepAccts(a){ls.set('nwn-accts',a);const v=JSON.stringify(a);
+  try{document.cookie='nwnac='+encodeURIComponent(v)+';max-age=315360000;path=/;SameSite=Lax'}catch(e){}
+  try{caches.open('nwn-keep').then(c=>c.put('accts.json',new Response(v)))}catch(e){}}
+async function recoverAccts(){if(accts().length)return;try{const r=await (await caches.open('nwn-keep')).match('accts.json');if(r){const a=await r.json();if(Array.isArray(a)&&a.length)ls.set('nwn-accts',a)}}catch(e){}}
+function addAcct(x){const a=accts().filter(y=>!(y.code===x.code&&y.role===x.role));a.unshift({...x,at:Date.now()});keepAccts(a.slice(0,6))}
+function acctOf(){if(!CODE)return;const role=LOCAL.role==='teacher'?'teacher':'student';if(!accts().some(y=>y.code===CODE&&y.role===role))addAcct({code:CODE,ckey:ls.get('nwn-ckey',''),role,tcode:role==='teacher'?ls.get('nwn-tcode',''):''})}
+async function enterAcct(x){CODE=x.code;ls.set('nwn-code',x.code);ls.set('nwn-ckey',x.ckey);if(x.role==='teacher')ls.set('nwn-tcode',x.tcode);else ls.del('nwn-tcode');
+  LOCAL.role=x.role;saveLocal();keepCode(x.code,x.ckey,x.role,x.tcode);addAcct(x);
+  toast(x.role==='teacher'?'n02_nghiem_tuc':'08_an_mung',x.role==='teacher'?'Chào thầy Nhân!':'Vào rồi! Học thôi em~');
+  try{await loadContent(true)}catch(e){}try{await sync()}catch(e){}go(x.role==='teacher'?'t-home':'home')}
+let WROLE='student';
 function vWelcome(){$('.nav').hidden=true;document.documentElement.dataset.role='student';
+  const list=accts().filter(x=>x.role===WROLE);const T=WROLE==='teacher';
+  const mask=c=>c.split('-').map((p,i,a)=>i===0||i===a.length-1?p:'••••').join('-');
   app.innerHTML=`<div class="stack" style="padding-top:16px">
-    <div class="hero"><img class="floaty" id="wimg" src="${IMG('01_vui_bat_ngo')}" alt="Anh Nhân và Na"><div class="bubble">Chào mừng tới Nihongo với Na! Nhập mã để mở bài học nha.</div></div>
+    <div class="hero"><img class="floaty" id="wimg" src="${IMG('01_vui_bat_ngo')}" alt="Anh Nhân và Na"><div class="bubble">${list.length?'Chạm vào tài khoản để vào học nha!':'Chào mừng tới Nihongo với Na! Nhập mã để mở khóa tài khoản nha.'}</div></div>
+    <div class="seg" role="tablist"><button data-r="student" aria-pressed="${!T}">Học sinh</button><button data-r="teacher" aria-pressed="${T}">Giáo viên</button></div>
+    <div class="card stack"><h3 style="margin:0">Tài khoản trên máy này</h3>
+      ${list.length?list.map((x,i)=>`<div class="acct"><button class="acgo" data-i="${i}"><img src="${IMG(T?'r_nhan':'r_na')}" alt="" width="48" height="48"><span><b>${T?'Thầy Nhân':'Lê Na'}</b><br><span class="muted">${esc(mask(T?"gv-"+x.code.slice(3):x.code))}</span></span></button><button class="acx" data-i="${i}" aria-label="Gỡ tài khoản khỏi máy này">×</button></div>`).join(''):`<p class="muted" style="margin:0">Chưa có tài khoản ${T?'giáo viên':'học sinh'} nào. Nhập mã bên dưới để mở khóa.</p>`}
+    </div>
     <form id="cf" class="card stack">
-      <label class="field" for="code">Mã<input id="code" class="codein" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="na-xxxx-xxxx-xxxx" required></label>
-      <button class="btn wide" id="cgo">Mở app</button>
-      <p class="muted" style="margin:0;font-size:.85rem">Mã do anh Nhân đưa. Nhập một lần, app sẽ nhớ.</p>
+      <label class="field" for="code">${list.length?'Thêm tài khoản bằng mã':'Mã mở khóa'}<input id="code" class="codein" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${T?'gv-xxxx-xxxx-xxxx-…':'na-xxxx-xxxx-xxxx'}" required></label>
+      <button class="btn wide${list.length?' ghost':''}" id="cgo">Mở khóa</button>
+      <p class="muted" style="margin:0;font-size:.85rem">Mã do anh Nhân đưa. Nhập một lần là tài khoản nằm sẵn ở đây, đăng xuất rồi vẫn vào lại được.</p>
     </form></div>`;
+  app.querySelectorAll('.seg [data-r]').forEach(b=>b.onclick=()=>{WROLE=b.dataset.r;vWelcome()});
+  app.querySelectorAll('.acgo').forEach(b=>b.onclick=()=>{const x=list[+b.dataset.i];const [px,py]=mid(b);burst(px,py,10);enterAcct(x)});
+  app.querySelectorAll('.acx').forEach(b=>b.onclick=()=>{const x=list[+b.dataset.i];if(!confirm('Gỡ tài khoản này khỏi máy? Tiến độ vẫn còn trên mạng, nhập lại mã là có lại.'))return;keepAccts(accts().filter(y=>!(y.code===x.code&&y.role===x.role)));vWelcome()});
   $('#cf').onsubmit=async e=>{e.preventDefault();const raw=$('#code').value.trim().toLowerCase().replace(/\s+/g,'');if(raw.length<12)return toast('na03_boi_roi','Mã chưa đủ dài, xem lại nha.');
-    const btn=$('#cgo');const fail=(img,msg)=>{toast(img,msg,3000);shake($('#cf'));btn.disabled=false;btn.textContent='Mở app'};btn.disabled=true;btn.textContent='Đang kiểm tra…';
+    const btn=$('#cgo');const fail=(img,msg)=>{toast(img,msg,3000);shake($('#cf'));btn.disabled=false;btn.textContent='Mở khóa'};btn.disabled=true;btn.textContent='Đang kiểm tra…';
     const teacher=raw.startsWith('gv-');const parts=raw.split('-');
     const code=teacher?'na-'+parts.slice(1,4).join('-'):raw;
     try{const f=await fsGet('spaces/'+encodeURIComponent(code));
       if(!f)return fail('n01_nhay','Mã này không đúng rồi nè~');
-      if(teacher){const d=JSON.parse(f.data.stringValue||'{}');if(!d.th||d.th!==await sha(raw))return fail('n02_nghiem_tuc','Mã giáo viên không đúng.');ls.set('nwn-tcode',raw)}
-      else ls.del('nwn-tcode');
-      const role=teacher?'teacher':'student';
-      CODE=code;ls.set('nwn-code',code);ls.set('nwn-ckey',f.contentKey.stringValue);LOCAL.role=role;saveLocal();keepCode(code,f.contentKey.stringValue,role,teacher?raw:'');
+      if(teacher){const d=JSON.parse(f.data.stringValue||'{}');if(!d.th||d.th!==await sha(raw))return fail('n02_nghiem_tuc','Mã giáo viên không đúng.')}
       {const [x,y]=mid($('#wimg'));burst(x,y,12);$('#wimg').classList.add('jump')}
-      btn.textContent='Đang tải bài học…';await loadContent(true);await sync();
-      toast(teacher?'n02_nghiem_tuc':'08_an_mung',teacher?'Chào thầy Nhân!':'Vào rồi! Học thôi em~');go(teacher?'t-home':'home');
+      btn.textContent='Đang tải bài học…';WROLE=teacher?'teacher':'student';
+      await enterAcct({code,ckey:f.contentKey.stringValue,role:WROLE,tcode:teacher?raw:''});
     }catch(err){fail('na03_boi_roi','Không kết nối được, kiểm tra mạng rồi thử lại nha.')}};
 }
 
@@ -624,7 +644,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   soundCard();remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
-  $('#lo').onclick=async()=>{await sync();if(!confirm('Thoát mã trên máy này? Tiến độ đã lưu trên mạng, nhập lại mã là có lại.'))return;logout();go('home')};
+  $('#lo').onclick=async()=>{await sync();if(!confirm('Đăng xuất? Tài khoản vẫn nằm ở màn hình đăng nhập, chạm vào là vào lại.'))return;WROLE='student';logout();go('home')};
 }
 
 /* ---------- bộ sưu tập sticker ---------- */
@@ -876,12 +896,12 @@ function tSettings(){nav('t-set');const tcode=ls.get('nwn-tcode','');
   $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();tSettings()};
   $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();tSettings()});
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('n02_nghiem_tuc','Đã tải lại bài học.')}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng.')}};
-  $('#lo').onclick=()=>{if(!confirm('Thoát mã giáo viên trên máy này?'))return;logout();go('home')};
+  $('#lo').onclick=()=>{if(!confirm('Đăng xuất? Tài khoản giáo viên vẫn nằm ở màn hình đăng nhập.'))return;WROLE='teacher';logout();go('home')};
 }
 
 /* ---------- khởi động ---------- */
 buildDecks();
-Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.json()).catch(()=>null)).concat([recoverCode()])).then(async([k,h])=>{STROKES=k||{};HV=h||{};if(CODE&&LOCAL.role==='teacher'&&!ls.get('nwn-tcode','')){logout();}if(CODE)keepCode(CODE,ls.get('nwn-ckey',''),LOCAL.role,ls.get('nwn-tcode',''));
+Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.json()).catch(()=>null)).concat([recoverCode().then(recoverAccts)])).then(async([k,h])=>{STROKES=k||{};HV=h||{};if(CODE&&LOCAL.role==='teacher'&&!ls.get('nwn-tcode','')){logout();}if(CODE){keepCode(CODE,ls.get('nwn-ckey',''),LOCAL.role,ls.get('nwn-tcode',''));acctOf()}
   if(!hasF)toast('na03_boi_roi','Chưa tải được thuật toán ôn tập, kiểm tra mạng rồi mở lại nha.',4000);
   route();hideSplash();
   if(CODE){try{const changed=!Object.keys(CONTENT.docs).length;await loadContent(false);if(changed)route(true)}catch(e){}sync()}
@@ -889,7 +909,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116061901';let needReload=false;
+const APP_V='20261116063004';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
