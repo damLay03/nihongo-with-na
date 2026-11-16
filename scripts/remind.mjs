@@ -35,28 +35,11 @@ if(fresh.length){const m=fresh[fresh.length-1];
   for(const [dev,p] of subs)await send(dev,p,{title:'Thư của anh',body,url:m.lock?'./#review':'./#home',tag:'thu-anh'});
   for(const x of fresh)ST.sentMsg[x.id]=Date.now();}
 for(const [id,t] of Object.entries(ST.sentMsg))if(Date.now()-t>7*864e5)delete ST.sentMsg[id];
-// 2) nhắc học: chưa học thì nhắc tăng dần tối đa 4 lần/ngày (giờ Na chọn, +1,5 tiếng, 21h30, 22h15).
-//    Đã học mà tối vẫn còn nhiều thẻ đến hạn thì nhắc nhẹ 1 lần.
-const mins=vn.getUTCHours()*60+vn.getUTCMinutes(),stc=S.streak?.count||0;
-const gap=S.streak?.last?Math.round((new Date(today)-new Date(S.streak.last))/864e5):0,frozen=stc>0&&gap>=2&&gap<=8;
-const pk=a=>a[Math.floor(Math.random()*a.length)];
-const LV=[
-  ()=>pk(lines),
-  ()=>pk([`Em ơi, anh vẫn đang chờ nè. ${due>0?due+' thẻ đến hạn rồi, vào':'Vào'} 5 phút thôi!`,'Anh nhắc lần hai đó nha. Mở app ôn với anh một chút đi~']),
-  ()=>frozen?`Chuỗi ${stc} ngày vẫn đang đóng băng, anh còn dỗi đó. Ôn 40 thẻ là anh hết dỗi liền!`:pk([`Tối rồi mà em chưa học… anh sắp dỗi thật đó!`,`Tối rồi nè em, ôn vài thẻ rồi hẵng đi ngủ nha.`]),
-  ()=>frozen?'Hôm nay mà không gỡ băng là anh dỗi thêm một ngày nữa đó 😤':(stc>0?`Còn chưa tới 2 tiếng nữa là chuỗi ${stc} ngày bị đóng băng đó em! Ôn vài thẻ thôi cũng được.`:'Lần nhắc cuối trong hôm nay nè, học một chút rồi ngủ ngon nha em.')];
+// 2) nhắc học: mỗi máy tối đa 1 lần/ngày, từ giờ Na chọn trở đi, nếu hôm nay chưa học
 for(const [dev,p] of ONLY_MSG?[]:subs){
-  let r=ST.remind[dev];if(!r||typeof r!=='object'||r.day!==today)r={day:today,n:0,at:0,due:false};
-  const since=(Date.now()-r.at)/6e4,start=(p.hour??20)*60;let lv=-1;
-  if(FORCE)lv=Math.min(r.n,3);
-  else if(!studied&&mins>=start){
-    if(r.n===0)lv=0;
-    else if(r.n===1&&(since>=90||(mins>=21*60&&since>=45)))lv=1;
-    else if(r.n===2&&mins>=21*60+30&&since>=45)lv=2;
-    else if(r.n===3&&mins>=22*60+15&&since>=40)lv=3;}
-  if(lv>=0){if(await send(dev,p,{title:'Nihongo với Na',body:LV[lv](),url:due>0?'./#review':'./#home',tag:'nhac-hoc'})){r.n++;r.at=Date.now()}}
-  else if(studied&&!r.due&&due>=20&&mins>=20*60){if(await send(dev,p,{title:'Nihongo với Na',body:`Hôm nay em học rồi, giỏi lắm! Còn ${due} thẻ đến hạn nữa, ôn thêm chút cho nhớ lâu nha~`,url:'./#review',tag:'nhac-hoc'}))r.due=true}
-  ST.remind[dev]=r;
+  if(!FORCE&&(hour<p.hour||studied||ST.remind[dev]===today))continue;
+  const body=lines[Math.floor(Math.random()*lines.length)];
+  if(await send(dev,p,{title:'Nihongo với Na',body,url:due>0?'./#review':'./#home'}))ST.remind[dev]=today;
 }
 fs.writeFileSync(SF,JSON.stringify(ST));
 console.log('hour',hour,'studied',studied,'due',due);
