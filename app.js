@@ -250,7 +250,7 @@ const TNAVS=[['t-home','Tổng quan','chart'],['t-msg','Lời nhắn','mail'],['
 function nav(active){if(isT()){active={lessons:'t-lessons',home:'t-home',me:'t-set'}[active]||active;$('#nav').innerHTML=TNAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=false;return}
   $('#nav').innerHTML=NAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=!CODE}
 function route(soft){routeInner(soft);if(!soft)enterFx()}
-function routeInner(soft){const h=(location.hash||'#home').slice(1);document.documentElement.dataset.view=h;
+function routeInner(soft){const h=(location.hash||'#home').slice(1);document.documentElement.dataset.view=h;applySkin();
   if(!CODE)return vWelcome();
   if(!soft){sessionStop();closeModal()}
   const y=soft?scrollY:0;
@@ -273,11 +273,11 @@ function enterFx(){app.classList.remove('enter');void app.offsetWidth;app.classL
   if(!RM)app.querySelectorAll('.stat b').forEach(countUp)}
 function countUp(el){const m=el.textContent.match(/^(\d+)(.*)$/);if(!m)return;const to=+m[1],suf=m[2];if(to<2)return;const t0=performance.now(),D=600;
   const step=t=>{const k=Math.min(1,(t-t0)/D);el.textContent=Math.round(to*(1-Math.pow(1-k,3)))+suf;if(k<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
-function burst(x,y,n=8,chars='♥♥★'){sfx('ok');if(RM)return;const f=document.createDocumentFragment();
+function burst(x,y,n=8,chars){chars=chars||(typeof SKIN==='function'&&SKIN()?SKIN().fx:'♥♥★');sfx('ok');if(RM)return;const f=document.createDocumentFragment();
   for(let i=0;i<n;i++){const e=document.createElement('i');e.className='fx';e.textContent=chars[i%chars.length];const a=Math.PI*2*i/n+Math.random()*.6,d=50+Math.random()*60;
     e.style.cssText=`left:${x}px;top:${y}px;--dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d-30}px;--r:${(Math.random()*80-40)|0}deg;color:${['var(--pink)','var(--peach)','#FFC94D'][i%3]}`;
     e.addEventListener('animationend',()=>e.remove());f.appendChild(e)}document.body.appendChild(f)}
-function rain(n=18){sfx('yay');if(RM)return;const f=document.createDocumentFragment();for(let i=0;i<n;i++){const e=document.createElement('i');e.className='fx rain';e.textContent='♥★✿'[i%3];
+function rain(n=18){sfx('yay');if(RM)return;const f=document.createDocumentFragment();for(let i=0;i<n;i++){const e=document.createElement('i');e.className='fx rain';e.textContent=(SKIN()?SKIN().fx:'♥★✿')[i%3];
   e.style.cssText=`left:${Math.random()*100}vw;top:-24px;--d:${(.9+Math.random()*.9).toFixed(2)}s;--dl:${(Math.random()*.5).toFixed(2)}s;color:${['var(--pink)','var(--peach)','#FFC94D'][i%3]}`;
   e.addEventListener('animationend',()=>e.remove());f.appendChild(e)}document.body.appendChild(f)}
 const mid=el=>{const r=el.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]};
@@ -482,7 +482,7 @@ let lastPct=0;
 // mục tiêu hôm nay theo đường cong quên: thẻ đã ôn hôm nay + thẻ đang đến hạn + thẻ mới đề xuất (theo giới hạn nếu bật, không thì 1 lượt 20 thẻ)
 function dayGoal(){const t=today(),due=dueIds().length,nSug=S.newPerDay||BATCH;const nLeft=Math.min(Math.max(0,nSug-t.nw),newIds(nSug).length);const left=due+nLeft,total=t.rev+left;return {done:t.rev,left,total,due,nLeft,pct:total?Math.min(100,Math.round(t.rev/total*100)):100}}
 function tripBar(pct,marks,from){const f=from==null?pct:from;
-  return `<div class="track"><div class="lane"><i class="fill" style="transform:scaleX(${f/100})"></i></div><div class="marks">${marks.map(m=>`<span class="mk${m.on?' on':''}" style="left:${m.at}%">♥</span>`).join('')}</div><span class="rwrap" style="transform:translateX(${f}%)"><img class="runner" src="${IMG('r_na')}" alt=""></span><img class="goal" src="${IMG('r_nhan')}" alt="Anh Nhân ở đích"></div>`}
+  return `<div class="track"><div class="lane"><i class="fill" style="transform:scaleX(${f/100})"></i></div><div class="marks">${marks.map(m=>`<span class="mk${m.on?' on':''}" style="left:${m.at}%">${SKIN()?SKIN().mk:'♥'}</span>`).join('')}</div><span class="rwrap" style="transform:translateX(${f}%)"><img class="runner" src="${IMG('r_na')}" alt=""></span><img class="goal" src="${IMG('r_nhan')}" alt="Anh Nhân ở đích"></div>`}
 function tripGo(root,pct){if(!root)return;requestAnimationFrame(()=>requestAnimationFrame(()=>{const f=root.querySelector('.fill'),w=root.querySelector('.rwrap');if(f)f.style.transform=`scaleX(${pct/100})`;if(w)w.style.transform=`translateX(${pct}%)`;const rn=root.querySelector('.runner');if(rn){rn.classList.remove('hop');void rn.offsetWidth;rn.classList.add('hop')}}))}
 /* ---------- phiên ôn ---------- */
 let sessionDeck=null,Q=[],qi=0,shown=false,sessStart=0,doneCount=0,okStreak=0,breakShown=false;
@@ -702,7 +702,7 @@ function showReveal(){const q=LOCAL.pend3||[];if(!q.length||isT()||$('#gift')||/
       <div class="gcap"><b>${esc(s.cap)}</b><span>Bộ ${esc(s.p.name)} · ${STK_ALL.filter(x=>x.p===s.p&&S.own[x.id]).length}/${s.p.items.length}</span></div>
       <button class="btn wide gnext" id="gnext">${i<n-1?'Mở quà tiếp':'Cất vào bộ sưu tập'}</button></div>`;
     const b=$('#gbox');let opened=false;const im=new Image();im.src=SIMG(id);
-    const open=()=>{if(opened)return;opened=true;sfx('gift');root.classList.add('opened');const [x,y]=mid(b);setTimeout(()=>{burst(x,y,16,'♥★✿♥');rain(26)},260)};
+    const open=()=>{if(opened)return;opened=true;sfx('gift');root.classList.add('opened');const [x,y]=mid(b);setTimeout(()=>{burst(x,y,16);rain(26)},260)};
     b.onclick=open;$('#gnext').onclick=()=>{if(!opened)return open();next()};root.classList.remove('opened');
   };
   const next=()=>{i++;if(i<n)step();else{LOCAL.pend3=[];saveLocal();root.classList.add('bye');setTimeout(()=>root.remove(),250);if(location.hash!=='#album')go('album');else vAlbum()}};
@@ -715,6 +715,20 @@ const THEMES={
  p4:{'01_vui_bat_ngo':'4-03','06_om_nhau':'4-01','02_ban_tay_tim':'4-09','g1_cuoi_vui':'4-02','n03_ninh_na':'4-02','g6_chu_v':'4-04','08_an_mung':'4-02','07_lo_dau':'4-08','na04_met':'4-09','n05_doi':'4-05','n01_nhay':'4-07','05_vo_ve_an_ui':'4-01','n04_co_vu':'4-03'}};
 const packDone=id=>{const p=STK.find(x=>x.id===id);return !!(p&&p.items&&p.items.every(it=>S.own[it[0]]))};
 function themeMap(){if(isT())return null;const t=LOCAL.theme;return t&&THEMES[t]&&packDone(t)?THEMES[t]:null}
+// Chủ đề đi kèm bộ sticker: màu + hoa văn nền (CSS data-skin), hạt bay khi ăn mừng, nhạc nền và tiếng hiệu ứng
+const SKINS={
+ p1:{fx:'✿❀♥',mk:'✿',bg:'#F3F7FF',mus:{bpm:92,ch:[[60,64,67],[55,59,62],[57,60,64],[53,57,60]],sc:[72,74,76,77,79,81,84],lead:'sine',len:2,dens:[.65,.3],bell:1},sx:{w:'sine',s:2}},
+ p2:{fx:'✦✸♥',mk:'✦',bg:'#FFF4E8',mus:{bpm:84,ch:[[57,60,64],[50,53,57],[57,60,64],[52,56,59]],sc:[64,65,69,71,72,76,77,81],lead:'triangle',len:1.1,dens:[.7,.4],taiko:1},sx:{w:'triangle',s:-3}},
+ p3:{fx:'♨✦♥',mk:'♨',bg:'#FFF8E6',mus:{bpm:68,ch:[[53,57,60,64],[52,55,59,62],[50,53,57,60],[48,52,55,59]],sc:[69,72,74,76,79,81],lead:'triangle',len:2.2,dens:[.5,.35],swing:.14,hat:1},sx:{w:'triangle',s:-5}},
+ p4:{fx:'☾★♥',mk:'★',bg:'#F6F2FF',mus:{bpm:62,meter:6,ch:[[53,57,60],[48,52,55],[46,50,53],[48,52,55]],sc:[65,67,69,72,74,77],lead:'sine',len:4,dens:[.45,.2]},sx:{w:'sine',s:-7}},
+ p5:{fx:'★✦☄',mk:'★',bg:'#EEF3FC',mus:{bpm:52,ch:[[48,55,64,66],[50,57,62,66],[45,52,59,64],[47,54,59,62]],sc:[72,74,76,78,79,83,84],lead:'sine',len:6,dens:[.35,.15],pad:1},sx:{w:'sine',s:5}},
+ p6:{fx:'♛♦♥',mk:'♦',bg:'#FFF5F8',mus:{bpm:108,meter:6,ch:[[55,59,62],[50,54,57],[52,55,59],[48,52,55]],sc:[67,69,71,72,74,76,78,79],lead:'square',len:.9,dens:[.8,.5],arp:1},sx:{w:'square',s:0}},
+ p7:{fx:'❄❅♥',mk:'❄',bg:'#F1F8FB',mus:{bpm:88,ch:[[50,54,57],[47,50,54],[43,47,50],[45,49,52]],sc:[74,76,78,81,83,86],lead:'sine',len:2.5,dens:[.6,.3],sleigh:1},sx:{w:'sine',s:2}},
+ p8:{fx:'✿★♥',mk:'★',bg:'#F5F8F0',mus:{bpm:80,ch:[[48,52,55],[43,47,50],[45,48,52],[41,45,48]],sc:[72,74,76,79,81,84],lead:'triangle',len:3,dens:[.55,.3],pad:1},sx:{w:'triangle',s:0}}};
+const skinId=()=>{if(isT())return '';const t=LOCAL.theme;return t&&SKINS[t]&&packDone(t)?t:''};
+const SKIN=()=>SKINS[skinId()]||null;
+function applySkin(){const id=skinId(),r=document.documentElement;if((r.dataset.skin||'')!==id){if(id)r.dataset.skin=id;else delete r.dataset.skin;mStep=0}
+  const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=(SKIN()||{bg:'#FFF4EF'}).bg}
 function vAlbum(){nav('album');checkStickers();const fresh=new Set(LOCAL.fresh3||[]);const bal=starBal();
   const packs=STK.map(p=>{
     if(p.soon)return `<div class="card pack soon"><div class="row" style="justify-content:space-between"><h3>${esc(p.name)}</h3><span class="pill">Sắp ra mắt</span></div><div class="sgrid">${'<div class="scell q">?</div>'.repeat(3)}</div><p class="muted" style="margin:0;font-size:.85rem">Bộ này đang vẽ, có rồi sẽ mua bằng sao nha</p></div>`;
@@ -726,12 +740,12 @@ function vAlbum(){nav('album');checkStickers();const fresh=new Set(LOCAL.fresh3|
     return `<div class="card pack stack"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted" style="font-size:.82rem;font-weight:700">${sub}</span></span><span class="pill">${have}/${its.length}</span></div>
       <div class="sgrid">${its.map(cell).join('')}</div>
       ${todo.length?`<div class="qlist">${todo.map(x=>`<button class="qrow" data-lk="${x.id}"><span class="qdot" aria-hidden="true"></span><span>${esc(x.quest)}</span></button>`).join('')}</div>`:''}
-      ${done?`<button class="btn ${LOCAL.theme===p.id?'':'ghost '}wide" data-th="${p.id}">${LOCAL.theme===p.id?'Đang dùng cho app · bấm để về mặc định':'Dùng bộ này cho cả app'}</button>`:`<p class="muted" style="margin:0;font-size:.82rem">Đủ bộ thì dùng được bộ này thay sticker của cả app</p>`}</div>`}).join('');
+      ${done?`<button class="btn ${LOCAL.theme===p.id?'':'ghost '}wide" data-th="${p.id}">${LOCAL.theme===p.id?'Đang dùng chủ đề này · bấm để về mặc định':'Dùng chủ đề này cho cả app'}</button>`:`<p class="muted" style="margin:0;font-size:.82rem">Đủ bộ thì đổi được cả app theo chủ đề này: sticker, màu, hình nền, nhạc</p>`}</div>`}).join('');
   app.innerHTML=`<div class="stack"><div class="top"><div><h1>Bộ sưu tập</h1><div class="muted" style="font-weight:800">${stkHave()}/${stkTotal()} sticker</div></div><img src="${IMG('02_ban_tay_tim')}" alt="" width="64" height="64" class="floaty"></div>
     <div class="card wallet"><span class="wstar" aria-hidden="true">★</span><span><b>${bal} sao</b><br><span class="muted" style="font-size:.85rem;font-weight:700">Vuốt phải đúng thẻ, chơi game, tô chữ để có thêm sao</span></span></div>${packs}</div>`;
   app.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>stickerSheet(b.dataset.st));
   app.querySelectorAll('[data-lk]').forEach(b=>b.onclick=()=>lockSheet(b.dataset.lk));
-  app.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{const id=b.dataset.th;LOCAL.theme=LOCAL.theme===id?'':id;saveLocal();const [x,y]=mid(b);vAlbum();if(LOCAL.theme){burst(x,y,12);toast('g1_cuoi_vui','Đổi xong! Cả app giờ mặc đồ '+STK.find(p=>p.id===id).name+' nè~',2400)}else toast('g1_cuoi_vui','Về sticker mặc định rồi nha',1800)});
+  app.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{const id=b.dataset.th;LOCAL.theme=LOCAL.theme===id?'':id;saveLocal();applySkin();const [x,y]=mid(b);vAlbum();if(LOCAL.theme){burst(x,y,12);toast('g1_cuoi_vui','Đổi xong! Cả app giờ theo chủ đề '+STK.find(p=>p.id===id).name+', nghe nhạc mới luôn nè~',2400)}else toast('g1_cuoi_vui','Về sticker mặc định rồi nha',1800)});
   if(fresh.size){LOCAL.fresh3=[];saveLocal()}
   setTimeout(showReveal,350)}
 function lockSheet(id){const x=STK_ALL.find(s=>s.id===id);if(!x||S.own[id])return;const bal=starBal();
@@ -768,21 +782,29 @@ function tone(dest,f,t,dur,vol,type='sine'){const o=AC.createOscillator(),g=AC.c
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(dest);o.start(t);o.stop(t+dur+.05)}
 // hộp nhạc: vòng hợp âm C–Am–F–G, giai điệu ngũ cung chọn ngẫu nhiên theo hợp âm, 76 nhịp/phút
 const CH=[[60,64,67],[57,60,64],[53,57,60],[55,59,62]],PENTA=[72,74,76,79,81,84];
-function musicTick(){if(!AC||AC.state!=='running')return;const beat=60/76/2;
-  while(mNext<AC.currentTime+.4){const bar=Math.floor(mStep/8)%4,pos=mStep%8,ch=CH[bar],t=mNext;
-    if(pos===0)tone(mGain,NOTE(ch[0]-12),t,beat*7,.16,'triangle');
-    if(pos%2===0)tone(mGain,NOTE(ch[(pos/2)%3]),t,beat*2.5,.07,'sine');
-    if(Math.random()<(pos%2?.35:.6)){const cand=PENTA.filter(n=>ch.some(c=>(n-c)%12===0)||Math.random()<.3);const n=pick(cand.length?cand:PENTA);tone(mGain,NOTE(n),t,beat*3,.09,'sine');tone(mGain,NOTE(n+12),t,beat*1.2,.02,'sine')}
+let NB=null;function noise(dest,t,dur,vol,hp=6000){if(!NB){NB=AC.createBuffer(1,AC.sampleRate*.5,AC.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  const s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=NB;f.type='highpass';f.frequency.value=hp;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(dest);s.start(t);s.stop(t+dur+.02)}
+const MDEF={bpm:76,ch:CH,sc:PENTA,lead:'sine',len:3,dens:[.6,.35],meter:8};
+function musicTick(){if(!AC||AC.state!=='running')return;const M=Object.assign({},MDEF,(SKIN()||{}).mus||{});const beat=60/M.bpm/2,mt=M.meter,lv=M.lead==='square'?.035:M.lead==='triangle'?.11:.09;
+  while(mNext<AC.currentTime+.4){const bar=Math.floor(mStep/mt)%M.ch.length,pos=mStep%mt,ch=M.ch[bar];let t=mNext;if(M.swing&&pos%2)t+=beat*M.swing;
+    if(pos===0)tone(mGain,NOTE(ch[0]-12),t,beat*(mt-1),.16,'triangle');
+    if(M.pad&&pos===0)ch.forEach(c=>tone(mGain,NOTE(c),t,beat*mt*1.1,.035,'sine'));
+    else if(M.arp)tone(mGain,NOTE(ch[pos%ch.length]),t,beat*1.2,.05,'triangle');
+    else if(!M.pad&&pos%2===0)tone(mGain,NOTE(ch[(pos/2)%ch.length]),t,beat*2.5,.07,'sine');
+    if(M.taiko&&(pos===0||pos===mt/2+1))tone(mGain,70,t,.35,.22,'sine');
+    if(M.hat&&pos%2===1)noise(mGain,t,.05,.05,7000);
+    if(M.sleigh&&pos%2===1)noise(mGain,t,.12,.06,8000);
+    if(Math.random()<(pos%2?M.dens[1]:M.dens[0])){const cand=M.sc.filter(n=>ch.some(c=>(n-c)%12===0)||Math.random()<.3);const n=pick(cand.length?cand:M.sc);tone(mGain,NOTE(n),t,beat*M.len,lv,M.lead);if(M.bell||!M.lead||M.lead==='sine')tone(mGain,NOTE(n+12),t,beat*1.2,.02,'sine')}
     mNext+=beat;mStep++}}
 function musicOn(){if(!SND.music||document.hidden||!acInit()||mTimer)return;if(AC.state!=='running')return;mNext=AC.currentTime+.1;mTimer=setInterval(musicTick,120);musicTick()}
 function musicOff(){clearInterval(mTimer);mTimer=null}
 // hiệu ứng ngắn
-function sfx(k){if(!SND.fx)return;if(!acInit()||AC.state!=='running')return;const t=AC.currentTime+.01;
-  if(k==='ok'){tone(fGain,NOTE(84),t,.18,.18);tone(fGain,NOTE(91),t+.07,.28,.16)}
-  else if(k==='no'){tone(fGain,NOTE(64),t,.16,.14,'triangle');tone(fGain,NOTE(59),t+.09,.26,.12,'triangle')}
-  else if(k==='flip'){tone(fGain,NOTE(81),t,.07,.08,'triangle')}
-  else if(k==='yay'){[72,76,79,84].forEach((n,i)=>tone(fGain,NOTE(n),t+i*.08,.35,.14))}
-  else if(k==='gift'){[84,88,91,96,100].forEach((n,i)=>tone(fGain,NOTE(n),t+i*.06,.4,.11));tone(fGain,NOTE(72),t,.6,.1,'triangle')}
+function sfx(k){if(!SND.fx)return;if(!acInit()||AC.state!=='running')return;const t=AC.currentTime+.01;const X=(SKIN()||{}).sx||{w:'sine',s:0},W=X.w,N=n=>NOTE(n+X.s),fv=W==='square'?.45:1;
+  if(k==='ok'){tone(fGain,N(84),t,.18,.18*fv,W);tone(fGain,N(91),t+.07,.28,.16*fv,W)}
+  else if(k==='no'){tone(fGain,N(64),t,.16,.14*fv,'triangle');tone(fGain,N(59),t+.09,.26,.12*fv,'triangle')}
+  else if(k==='flip'){tone(fGain,N(81),t,.07,.08,'triangle')}
+  else if(k==='yay'){[72,76,79,84].forEach((n,i)=>tone(fGain,N(n),t+i*.08,.35,.14*fv,W))}
+  else if(k==='gift'){[84,88,91,96,100].forEach((n,i)=>tone(fGain,N(n),t+i*.06,.4,.11*fv,W));tone(fGain,N(72),t,.6,.1,'triangle')}
   else if(k==='coin'){tone(fGain,NOTE(83),t,.08,.14,'square');tone(fGain,NOTE(88),t+.07,.3,.12,'square')}}
 function sndSave(){LOCAL.snd=Object.assign({},SND);saveLocal();applyVol();if(SND.music)musicOn();else musicOff()}
 // iPhone chỉ cho phát âm thanh sau lần chạm đầu tiên
@@ -922,7 +944,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116065042';let needReload=false;
+const APP_V='20261116070338';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
