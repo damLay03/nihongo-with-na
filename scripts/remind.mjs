@@ -8,7 +8,7 @@ ST.sentMsg=ST.sentMsg||{};ST.remind=ST.remind||{};
 const API_KEY='AIzaSyDa9OOERR8w7kgnkC5cU9-Nr9fZWuusuzU';
 const VAPID_PUBLIC='BFVtX4LPH5MpRleWetTAzmZZxe1CsqqJzRxVX-XYf7K3GbKl_Za-8D8N9vl5tKFtz8GCoTBYwtxxX93tqO8vSWg';
 const CODE=process.env.STUDY_CODE, PRIV=process.env.VAPID_PRIVATE_KEY;
-const FORCE=process.env.FORCE==='1';
+const FORCE=process.env.FORCE==='1', ONLY_MSG=process.env.ONLY_MSG==='1';
 if(!CODE||!PRIV){console.log('Thiếu STUDY_CODE hoặc VAPID_PRIVATE_KEY');process.exit(1)}
 webpush.setVapidDetails('https://github.com/damLay03/nihongo-with-na',VAPID_PUBLIC,PRIV);
 const DOC=`https://firestore.googleapis.com/v1/projects/nihongo-with-na/databases/(default)/documents/spaces/${encodeURIComponent(CODE)}`;
@@ -36,7 +36,7 @@ if(fresh.length){const m=fresh[fresh.length-1];
   for(const x of fresh)ST.sentMsg[x.id]=Date.now();}
 for(const [id,t] of Object.entries(ST.sentMsg))if(Date.now()-t>7*864e5)delete ST.sentMsg[id];
 // 2) nhắc học: mỗi máy tối đa 1 lần/ngày, từ giờ Na chọn trở đi, nếu hôm nay chưa học
-for(const [dev,p] of subs){
+for(const [dev,p] of ONLY_MSG?[]:subs){
   if(!FORCE&&(hour<p.hour||studied||ST.remind[dev]===today))continue;
   const body=lines[Math.floor(Math.random()*lines.length)];
   if(await send(dev,p,{title:'Nihongo với Na',body,url:due>0?'./#review':'./#home'}))ST.remind[dev]=today;

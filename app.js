@@ -829,7 +829,13 @@ function tMsgs(){nav('t-msg');let pickSt=LOCAL.lastSt||'02_ban_tay_tim',lock=!!L
   $('#mlk').onclick=()=>{lock=!lock;$('#mlk').setAttribute('aria-checked',lock)};
   $('#msend').onclick=async()=>{const t=$('#mt').value.trim();if(!t)return toast('n02_nghiem_tuc','Viết gì đó cho Na đã nha');
     S.msgs=(S.msgs||[]).concat([{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),t,st:pickSt,lock,at:Date.now(),seen:0}]).slice(-50);
-    LOCAL.lastSt=pickSt;LOCAL.lastLock=lock;saveLocal();save();await sync();toast('02_ban_tay_tim',syncState.ok?'Gửi rồi! Na mở app là thấy.':'Đã lưu, có mạng là gửi nha.');tMsgs()}}
+    LOCAL.lastSt=pickSt;LOCAL.lastLock=lock;saveLocal();save();await sync();
+    const pushed=syncState.ok&&await ringNa();
+    toast('02_ban_tay_tim',!syncState.ok?'Đã lưu, có mạng là gửi nha.':pushed?'Gửi rồi! Khoảng 1 phút nữa máy Na báo.':'Gửi rồi! Na mở app là thấy.');tMsgs()}}
+// Báo ngay lên máy Na: chạy workflow gửi thông báo bằng token GitHub chỉ lưu trên máy giáo viên (không đồng bộ)
+const GH_WF='https://api.github.com/repos/damLay03/nihongo-with-na/actions/workflows/remind.yml/dispatches';
+async function ringNa(){const tok=ls.get('nwn-ghtok','');if(!tok)return false;
+  try{const r=await fetch(GH_WF,{method:'POST',headers:{Authorization:'Bearer '+tok,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{force:false,only_msg:true}})});return r.status===204}catch(e){return false}}
 
 /* ---------- nhắc học (Web Push) ---------- */
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
@@ -892,9 +898,16 @@ function tSettings(){nav('t-set');const tcode=ls.get('nwn-tcode','');
   <div class="card stack"><h3>Mã giáo viên của anh</h3><p style="margin:0"><b class="jp" style="user-select:all;overflow-wrap:anywhere">${esc(tcode)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Chỉ anh giữ. Ai có mã này mới vào được bảng theo dõi và mở bài.</p></div>
   <div class="card stack"><h3>Số thẻ mới mỗi ngày của Na</h3><div class="switch"><span><b>Giới hạn</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Tối đa '+S.newPerDay+' thẻ mới mỗi ngày':'Đang tắt: Na học bao nhiêu tùy ý'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Giới hạn thẻ mới mỗi ngày"></button></div>
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}</div>
+  <div class="card stack"><h3>Báo thư ngay lên máy Na</h3><p class="muted" style="margin:0;font-size:.85rem">${ls.get('nwn-ghtok','')?'Đã bật. Gửi thư xong khoảng 1 phút là máy Na báo.':'Dán token GitHub (chỉ quyền Actions của repo app) để thư báo ngay. Token chỉ lưu trên máy này.'}</p>
+    <label class="field" for="ghtok">Token GitHub<input id="ghtok" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" value="${ls.get('nwn-ghtok','')?'••••••••':''}"></label>
+    <button class="btn ghost" id="ghsave">${ls.get('nwn-ghtok','')?'Đổi token':'Lưu token'}</button>${ls.get('nwn-ghtok','')?'<button class="btn ghost" id="ghdel">Xóa token</button>':''}</div>
   <div class="card stack"><button class="btn ghost" id="rc">Tải lại bài học</button><button class="btn ghost" id="lo">Thoát khỏi máy này</button></div></div>`;
   $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();tSettings()};
   $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();tSettings()});
+  $('#ghsave').onclick=async()=>{const v=$('#ghtok').value.trim();if(!v||v.startsWith('••'))return toast('n02_nghiem_tuc','Dán token vào ô trước đã.');
+    try{const r=await fetch('https://api.github.com/repos/damLay03/nihongo-with-na/actions/workflows/remind.yml',{headers:{Authorization:'Bearer '+v,Accept:'application/vnd.github+json'}});if(!r.ok)return toast('na03_boi_roi','Token không dùng được, xem lại quyền nha.',3000)}catch(e){return toast('na03_boi_roi','Không kết nối được GitHub.')}
+    ls.set('nwn-ghtok',v);toast('n02_nghiem_tuc','Lưu rồi! Từ giờ gửi thư là báo ngay.');tSettings()};
+  $('#ghdel')&&($('#ghdel').onclick=()=>{ls.del('nwn-ghtok');tSettings()});
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('n02_nghiem_tuc','Đã tải lại bài học.')}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng.')}};
   $('#lo').onclick=()=>{if(!confirm('Đăng xuất? Tài khoản giáo viên vẫn nằm ở màn hình đăng nhập.'))return;WROLE='teacher';logout();go('home')};
 }
@@ -909,7 +922,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116063004';let needReload=false;
+const APP_V='20261116065042';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){

@@ -8,6 +8,13 @@ on:
         description: 'Gửi thử ngay (bỏ qua giờ hẹn)'
         type: boolean
         default: true
+      only_msg:
+        description: 'Chỉ báo thư mới (app giáo viên gọi khi gửi thư)'
+        type: boolean
+        default: false
+concurrency:
+  group: remind
+  cancel-in-progress: false
 jobs:
   remind:
     runs-on: ubuntu-latest
@@ -28,6 +35,7 @@ jobs:
         env:
           STUDY_CODE: ${{ secrets.STUDY_CODE }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          ONLY_MSG: ${{ github.event_name == 'workflow_dispatch' && inputs.only_msg && '1' || '0' }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
       - uses: actions/cache/save@v4
         if: always()
