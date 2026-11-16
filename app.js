@@ -396,6 +396,24 @@ function vQuick(){nav('home');const q=qState();const nx=q.done.findIndex(d=>!d);
    ${all?'<a class="btn wide" href="#home">Về trang chính</a><a class="btn ghost wide" href="#games">Chơi thêm game</a>':`<button class="btn wide" id="qgo">${nx===0?'Bắt đầu':'Làm bước '+(nx+1)}</button>`}</div>`;
   $('#qgo')&&($('#qgo').onclick=()=>{QK=nx;go(QSTEPS[nx][0])});enterFx()}
 
+/* ---------- lịch dấu chân: ngày nào học thì in dấu chân, mốc 7/14/21/28 ngày trong tháng được sao ---------- */
+let calOff=0;const CAL_MS=[[7,5],[14,10],[21,15],[28,25]];
+function studiedOn(k){const l=S.log[k];return !!(l&&(l.rev>0))||S.games.some(g=>g.d===k)}
+function calCard(){const el=$('#cal');if(!el)return;const now=new Date(),m=new Date(now.getFullYear(),now.getMonth()+calOff,1),Y=m.getFullYear(),M=m.getMonth();
+  const days=new Date(Y,M+1,0).getDate(),lead=(m.getDay()+6)%7,tk=dkey();let cnt=0,cells='';
+  for(let i=0;i<lead;i++)cells+='<span></span>';
+  for(let d=1;d<=days;d++){const k=dkey(new Date(Y,M,d)),on=studiedOn(k);if(on)cnt++;cells+=`<span class="cd${on?' on':''}${k===tk?' tdy':''}${k>tk?' fut':''}">${on?`<img src="${IMG('r_na')}" alt="">`:''}<b>${d}</b></span>`}
+  const mk=`${Y}-${String(M+1).padStart(2,'0')}`;
+  // nhận thưởng mốc (mỗi mốc mỗi tháng 1 lần)
+  let got=0;for(const [n,st] of CAL_MS)if(cnt>=n&&!evN('cal-'+mk+'-'+n)){S.ev=S.ev||{};S.ev['cal-'+mk+'-'+n]=1;S.stars+=st;got+=st}
+  if(got){save();sync();setTimeout(()=>{toast('08_an_mung',`Đủ ${cnt} dấu chân tháng này! Thưởng em ${got} sao nè~`,2600);rain(18)},400)}
+  const nextMs=CAL_MS.find(([n])=>cnt<n);
+  el.innerHTML=`<div class="row" style="justify-content:space-between"><button class="back" id="cp" aria-label="Tháng trước">‹</button><h3 style="margin:0">Dấu chân tháng ${M+1}/${Y}</h3><button class="back" id="cn" aria-label="Tháng sau" ${calOff>=0?'disabled style="opacity:.3"':''}>›</button></div>
+   <div class="cal">${['T2','T3','T4','T5','T6','T7','CN'].map(x=>`<span class="ch">${x}</span>`).join('')}${cells}</div>
+   <div class="calms">${CAL_MS.map(([n,st])=>`<span class="pill${cnt>=n?' on':''}">${cnt>=n?'✓':'♡'} ${n} ngày · ${st}★</span>`).join('')}</div>
+   <p class="muted" style="margin:0;font-size:.85rem">${cnt} ngày có dấu chân${calOff===0&&nextMs?`. Thêm ${nextMs[0]-cnt} ngày nữa là được ${nextMs[1]} sao.`:'.'}</p>`;
+  $('#cp').onclick=()=>{calOff--;calCard()};$('#cn').onclick=()=>{if(calOff<0){calOff++;calCard()}}}
+
 /* ---------- danh sách bài ---------- */
 function deckProgress(id){const cs=deckCards(id);if(!cs.length)return 0;return cs.filter(c=>S.cards[c.id]&&S.cards[c.id].state===2).length/cs.length}
 function vLessons(){nav('lessons');
@@ -761,6 +779,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
+  <div class="card stack" id="cal"></div>
   <div class="card stack" id="sound"></div>
   <div class="card stack" id="remind"></div>
   <div class="card stack"><h3>Đồng bộ</h3><p class="muted" style="margin:0;font-size:.9rem">Tiến độ tự lưu lên mạng bằng mã học. Mất mạng vẫn học được, có mạng lại thì app tự gửi lên.</p>
@@ -770,7 +789,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();vMe()};
   $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();vMe()});
   $('#vt').onclick=()=>say('はじめまして。どうぞ　よろしく。');
-  soundCard();remindCard();
+  calCard();soundCard();remindCard();
   $('#sn').onclick=async()=>{await sync();toast(syncState.ok?'g1_cuoi_vui':'na03_boi_roi',syncState.ok?'Đồng bộ xong rồi!':'Chưa đồng bộ được, kiểm tra mạng nha.')};
   $('#rc').onclick=async()=>{try{await loadContent(true);toast('g1_cuoi_vui','Đã tải lại bài học mới nhất!');route(true)}catch(e){toast('na03_boi_roi','Chưa tải được, kiểm tra mạng nha.')}};
   $('#lo').onclick=async()=>{await sync();if(!confirm('Đăng xuất? Tài khoản vẫn nằm ở màn hình đăng nhập, chạm vào là vào lại.'))return;WROLE='student';logout();go('home')};
@@ -1074,7 +1093,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116195719';let needReload=false;
+const APP_V='20261116200108';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
