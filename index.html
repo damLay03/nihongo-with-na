@@ -319,6 +319,18 @@ ruby.hide rt{visibility:hidden}
 :root[data-view="review"] .toast,:root[data-view="review"] .stkping{top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 :root[data-view="review"] .stkping{bottom:calc(196px + env(safe-area-inset-bottom,0px))}
 :root[data-view="review"] .toast img{width:56px}
+.letter{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;width:100%;border-color:var(--pink)}
+.letter.ready .env{animation:wiggle 1.6s ease-in-out infinite}
+.env{position:relative;width:62px;height:44px;border-radius:8px;background:#FFE3EA;border:2px solid var(--pink);overflow:hidden}
+.env .flap{position:absolute;left:-2px;right:-2px;top:-24px;height:46px;background:#FFD0DC;border:2px solid var(--pink);transform:rotate(45deg) scale(.72);transform-origin:center}
+.env .seal{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:var(--pink-deep);color:#fff;font-size:12px;display:grid;place-items:center}
+.paper{background:#FFFDF8;border:2px dashed var(--peach);border-radius:20px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both}
+.paper img{width:140px;height:auto}
+.paper p{margin:0;font-weight:800;font-size:1.1rem;white-space:pre-line;color:#4A2C2E}
+.stpick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:6px}
+.stpick button{border-radius:14px;border:2px solid var(--line);background:var(--surface);padding:4px;aspect-ratio:1}
+.stpick button[aria-pressed="true"]{border-color:var(--pink);background:var(--surface2)}
+.stpick img{width:100%;height:100%;object-fit:contain}
 </style>
 </head>
 <body>

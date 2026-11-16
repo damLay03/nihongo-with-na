@@ -20,12 +20,13 @@ const ICON={
   lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
   gift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M2 9h20M12 9v12M12 9C10 5 6 4 6 7s4 2 6 2c2 0 6 1 6-2s-4-2-6 2"/></svg>',
+  mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
   spk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>'
 };
 
 /* ---------- local state ---------- */
 const KEY='nwn-v1';
-const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0,own:{},ev:{},buy:{}};
+const DEF={cards:{},unlocked:{hira:true,kata:true,b1:true},newPerDay:0,log:{},stars:0,streak:{last:'',count:0,best:0},games:[],pin:'1234',setAt:0,own:{},ev:{},buy:{},msgs:[]};
 let S=Object.assign(structuredClone(DEF),ls.get(KEY,{}));
 let LOCAL=Object.assign({hello:false,role:'student'},ls.get('nwn-local',{}));
 if(!LOCAL.dev){LOCAL.dev=Math.random().toString(36).slice(2,10);ls.set('nwn-local',LOCAL)}
@@ -93,6 +94,7 @@ function merge(a,b){
   const seen=new Set(o.games.map(g=>g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'')));
   (b.games||[]).forEach(g=>{const k=g.t+'|'+g.s+'|'+g.d+'|'+(g.at||'');if(!seen.has(k)){seen.add(k);o.games.push(g)}});
   o.games.sort((x,y)=>(x.at||0)-(y.at||0));o.games=o.games.slice(-200);
+  {const mm=new Map();for(const m of (a.msgs||[]).concat(b.msgs||[])){const x=mm.get(m.id);mm.set(m.id,x?Object.assign({},x,{seen:Math.max(x.seen||0,m.seen||0)}):m)}o.msgs=[...mm.values()].sort((x,y)=>x.at-y.at).slice(-50)}
   o.th=o.th||b.th;o.wipedAt=Math.max(a.wipedAt||0,b.wipedAt||0)||undefined;if(!o.wipedAt)delete o.wipedAt;
   delete o.stk;o.own=Object.assign({},b.own||{},o.own||{});for(const [k,v] of Object.entries(b.own||{}))if(v<o.own[k])o.own[k]=v;
   o.buy=Object.assign({},b.buy||{},o.buy||{});o.ev=Object.assign({},o.ev||{});for(const [k,v] of Object.entries(b.ev||{}))o.ev[k]=Math.max(o.ev[k]||0,v||0);
@@ -244,7 +246,7 @@ function newIds(n,deck){
 /* ---------- router ---------- */
 const app=$('#app');
 const NAVS=[['home','Hôm nay','home'],['lessons','Bài học','book'],['album','Sticker','gift'],['games','Trò chơi','game'],['me','Tớ','me']];
-const TNAVS=[['t-home','Tổng quan','chart'],['t-unlock','Mở bài','lock'],['t-lessons','Xem bài','book'],['t-set','Cài đặt','gear']];
+const TNAVS=[['t-home','Tổng quan','chart'],['t-msg','Lời nhắn','mail'],['t-unlock','Mở bài','lock'],['t-lessons','Xem bài','book'],['t-set','Cài đặt','gear']];
 function nav(active){if(isT()){active={lessons:'t-lessons',home:'t-home',me:'t-set'}[active]||active;$('#nav').innerHTML=TNAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=false;return}
   $('#nav').innerHTML=NAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=!CODE}
 function route(soft){routeInner(soft);if(!soft)enterFx()}
@@ -254,7 +256,7 @@ function routeInner(soft){const h=(location.hash||'#home').slice(1);document.doc
   const y=soft?scrollY:0;
   document.documentElement.dataset.role=isT()?'teacher':'student';
   if(isT()){
-    if(h==='t-unlock')tUnlock();else if(h==='t-lessons'||h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));else if(h==='t-set')tSettings();else tHome();
+    if(h==='t-unlock')tUnlock();else if(h==='t-lessons'||h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));else if(h==='t-set')tSettings();else if(h==='t-msg')tMsgs();else tHome();
     if(soft)scrollTo(0,y);return}
   if(h==='home')vHome();else if(h==='lessons')vLessons();else if(h.startsWith('lesson-'))vLesson(h.slice(7));
   else if(h==='games')vGames();else if(h==='album')vAlbum();else if(h==='me')vMe();else if(h==='review')vReview();
@@ -323,6 +325,7 @@ function vHome(){nav('home');
   const t=today(),G=dayGoal();
   app.innerHTML=`<div class="stack">
     <div class="top"><div><div class="muted" style="font-weight:800">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'numeric'})}</div><h1>Nihongo với Na</h1>${syncBadge()}</div><img src="${IMG('r_na')}" alt="Na" width="52" height="52" style="border-radius:50%"></div>
+    ${letterHTML()}
     <div class="hero"><img src="${IMG(img)}" alt="Sticker anh Nhân"><div class="bubble">${esc(msg)}</div></div>
     <div class="stats"><div class="stat"><b>${st}</b><span>ngày liền</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${t.rev}</b><span>thẻ hôm nay</span></div></div>
     <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${G.done}/${G.total} thẻ</span></div>
@@ -337,6 +340,7 @@ function vHome(){nav('home');
     <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.own[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
+  $('#letter')&&($('#letter').onclick=openLetter);
   LOCAL.hello=true;saveLocal();tripGo($('.goalcard'),G.pct);
   checkStickers();setTimeout(showReveal,700);
   $('#start')&&($('#start').onclick=()=>go('review'));
@@ -778,6 +782,35 @@ function soundCard(){const el=$('#sound');if(!el)return;
   $('#smv')&&($('#smv').oninput=e=>{SND.mv=+e.target.value/100;sndSave()});
   $('#sfv')&&($('#sfv').onchange=e=>{SND.fv=+e.target.value/100;sndSave();sfx('ok')})}
 
+/* ---------- lời nhắn của anh ---------- */
+// Anh gửi từ máy giáo viên, lưu trong S.msgs; Na thấy phong bì ở trang chính. Thư khóa thì phải ôn xong thẻ hôm nay mới mở được.
+const MSG_ST=['02_ban_tay_tim','06_om_nhau','n03_ninh_na','n04_co_vu','g6_chu_v','08_an_mung','n06_nhac_gio','n05_doi','05_vo_ve_an_ui','04_thi_tham','01_vui_bat_ngo','g1_cuoi_vui','n01_nhay','03_doi_gian','g3_tua_vai','07_lo_dau'];
+const msgOpenable=m=>!m.lock||dayGoal().left===0;
+function unreadMsgs(){return (S.msgs||[]).filter(m=>!m.seen).sort((a,b)=>a.at-b.at)}
+function letterHTML(){const u=unreadMsgs();if(!u.length)return '';const m=u[0],ok=msgOpenable(m);
+  return `<button class="card letter${ok?' ready':''}" id="letter" aria-label="Thư của anh"><span class="env" aria-hidden="true"><span class="flap"></span><span class="seal">${ok?'♥':'🔒'}</span></span><span style="min-width:0;text-align:left"><b>${u.length>1?`Anh gửi em ${u.length} lá thư`:'Anh gửi em một lá thư'}</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${ok?'Chạm để mở nè':'Ôn xong thẻ hôm nay mới mở được nha'}</span></span></button>`}
+function openLetter(){const m=unreadMsgs()[0];if(!m)return;
+  if(!msgOpenable(m)){const G=dayGoal();shake($('#letter'));return toast('n06_nhac_gio',`Còn ${G.left} thẻ nữa mới mở được thư nha em~`)}
+  openSheet('Thư của anh',`<div class="row" style="justify-content:space-between"><h2>Thư của anh</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+   <div class="paper"><img src="${IMG(m.st||'02_ban_tay_tim')}" alt=""><p>${esc(m.t)}</p><span class="muted" style="font-size:.8rem;font-weight:700">Anh Nhân · ${new Date(m.at).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'numeric'})}</span></div>
+   <button class="btn wide" id="gotit">${unreadMsgs().length>1?'Đọc thư tiếp':'Thương anh ♥'}</button>`);
+  sfx('gift');setTimeout(()=>{const p=$('.paper');if(p){const [x,y]=mid(p);burst(x,y,14,'♥♥✿')}},250);
+  m.seen=Date.now();save();sync();
+  $('#gotit').onclick=()=>{closeModal();if(unreadMsgs().length)openLetter();else route(true)}}
+function tMsgs(){nav('t-msg');let pickSt=LOCAL.lastSt||'02_ban_tay_tim',lock=!!LOCAL.lastLock;
+  const list=(S.msgs||[]).slice().sort((a,b)=>b.at-a.at);
+  app.innerHTML=`<div class="stack">${tTop('Lời nhắn','Gửi thư cho Na')}
+   <div class="card stack"><label class="field" for="mt">Lời nhắn<textarea id="mt" rows="3" maxlength="300" placeholder="Hôm nay em giỏi lắm, tối anh dẫn đi ăn nha"></textarea></label>
+    <div><b style="font-size:.9rem">Sticker kèm theo</b><div class="stpick">${MSG_ST.map(n=>`<button data-ps="${n}" aria-pressed="${n===pickSt}" aria-label="Chọn sticker"><img src="${IMG(n)}" alt=""></button>`).join('')}</div></div>
+    <div class="switch"><span><b>Khóa thư</b><br><span class="muted" style="font-size:.85rem">Na phải ôn xong thẻ hôm nay mới mở được</span></span><button class="tg" role="switch" id="mlk" aria-checked="${lock}" aria-label="Khóa thư"></button></div>
+    <button class="btn wide" id="msend">Gửi cho Na</button></div>
+   <div class="card stack"><h3>Thư đã gửi</h3>${list.length?list.slice(0,20).map(m=>`<div class="switch"><span style="min-width:0"><span style="overflow-wrap:anywhere">${esc(m.t)}</span><br><span class="muted" style="font-size:.8rem">${new Date(m.at).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'numeric'})}${m.lock?' · có khóa':''}</span></span><span class="pill" style="white-space:nowrap;flex:none">${m.seen?'Na đã đọc':'Chưa đọc'}</span></div>`).join(''):'<p class="muted" style="margin:0">Chưa gửi lá thư nào.</p>'}</div></div>`;
+  app.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{pickSt=b.dataset.ps;app.querySelectorAll('[data-ps]').forEach(x=>x.setAttribute('aria-pressed',x===b))});
+  $('#mlk').onclick=()=>{lock=!lock;$('#mlk').setAttribute('aria-checked',lock)};
+  $('#msend').onclick=async()=>{const t=$('#mt').value.trim();if(!t)return toast('n02_nghiem_tuc','Viết gì đó cho Na đã nha');
+    S.msgs=(S.msgs||[]).concat([{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),t,st:pickSt,lock,at:Date.now(),seen:0}]).slice(-50);
+    LOCAL.lastSt=pickSt;LOCAL.lastLock=lock;saveLocal();save();await sync();toast('02_ban_tay_tim',syncState.ok?'Gửi rồi! Na mở app là thấy.':'Đã lưu, có mạng là gửi nha.');tMsgs()}}
+
 /* ---------- nhắc học (Web Push) ---------- */
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 const pushOK=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
@@ -856,7 +889,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116060038';let needReload=false;
+const APP_V='20261116060516';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
