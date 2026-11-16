@@ -988,6 +988,7 @@ function openLetter(){const m=unreadMsgs()[0];if(!m)return;
   sfx('gift');setTimeout(()=>{const p=$('.paper');if(p){const [x,y]=mid(p);burst(x,y,14,'♥♥✿')}},250);
   m.seen=Date.now();save();sync();
   $('#gotit').onclick=()=>{closeModal();if(unreadMsgs().length)openLetter();else route(true)}}
+let MSG_DRAFT='';
 function tMsgs(){nav('t-msg');let pickSt=LOCAL.lastSt||'02_ban_tay_tim',lock=!!LOCAL.lastLock;
   const list=(S.msgs||[]).slice().sort((a,b)=>b.at-a.at);
   app.innerHTML=`<div class="stack">${tTop('Lời nhắn','Gửi thư cho Na')}
@@ -996,6 +997,7 @@ function tMsgs(){nav('t-msg');let pickSt=LOCAL.lastSt||'02_ban_tay_tim',lock=!!L
     <div class="switch"><span><b>Khóa thư</b><br><span class="muted" style="font-size:.85rem">Na phải ôn xong thẻ hôm nay mới mở được</span></span><button class="tg" role="switch" id="mlk" aria-checked="${lock}" aria-label="Khóa thư"></button></div>
     <button class="btn wide" id="msend">Gửi cho Na</button></div>
    <div class="card stack"><h3>Thư đã gửi</h3>${list.length?list.slice(0,20).map(m=>`<div class="switch"><span style="min-width:0"><span style="overflow-wrap:anywhere">${esc(m.t)}</span><br><span class="muted" style="font-size:.8rem">${new Date(m.at).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'numeric'})}${m.lock?' · có khóa':''}</span></span><span class="pill" style="white-space:nowrap;flex:none">${m.seen?'Na đã đọc':'Chưa đọc'}</span></div>`).join(''):'<p class="muted" style="margin:0">Chưa gửi lá thư nào.</p>'}</div></div>`;
+  if(MSG_DRAFT){$('#mt').value=MSG_DRAFT;MSG_DRAFT=''}
   app.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{pickSt=b.dataset.ps;app.querySelectorAll('[data-ps]').forEach(x=>x.setAttribute('aria-pressed',x===b))});
   $('#mlk').onclick=()=>{lock=!lock;$('#mlk').setAttribute('aria-checked',lock)};
   $('#msend').onclick=async()=>{const t=$('#mt').value.trim();if(!t)return toast('n02_nghiem_tuc','Viết gì đó cho Na đã nha');
@@ -1035,6 +1037,24 @@ function logout(){['nwn-code','nwn-ckey','nwn-content','nwn-tcode',KEY].forEach(
 function tTop(title,sub){return `<div class="top"><div style="min-width:0"><div class="muted" style="font-weight:800">${esc(sub)}</div><h1>${esc(title)}</h1>${syncBadge()}</div><img src="${IMG('r_nhan')}" alt="Thầy Nhân" width="52" height="52" style="border-radius:50%"></div>`}
 function cardLabel(id){const c=byId(id);if(!c)return id;if(c.type==='kana')return c.k.ch+' ('+c.k.ro+')';if(c.type==='vocab')return (c.w.kanji||c.w.kana)+' · '+c.w.vn;if(c.type==='kanji')return c.kj.k+' · '+c.kj.hv;if(c.type==='kword')return plain(c.segs)+' · '+c.vn;return plain(c.e.jp)}
 function ago(ms){if(!ms)return 'chưa học lần nào';const m=(Date.now()-ms)/60000;if(m<2)return 'vừa xong';if(m<60)return Math.round(m)+' phút trước';const h=m/60;if(h<24)return Math.round(h)+' giờ trước';return Math.round(h/24)+' ngày trước'}
+// Báo cáo tuần (thứ 2 đến CN) so với tuần trước, kèm gợi ý thư cho anh gửi Na
+function weekStats(off){const now=new Date(),mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-((now.getDay()+6)%7)-7*off);
+  const ks=[...Array(7)].map((_,i)=>dkey(new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i)));
+  const L=ks.map(k=>S.log[k]||{}),sum=f=>L.reduce((a,l)=>a+(l[f]||0),0);
+  return {ks,from:ks[0],to:ks[6],days:ks.filter(k=>(S.log[k]&&S.log[k].rev>0)||S.games.some(g=>g.d===k)).length,rev:sum('rev'),ok:sum('ok'),nw:sum('nw'),min:Math.round(sum('secs')/60),games:S.games.filter(g=>ks.includes(g.d)).length}}
+function weekReport(){const a=weekStats(0),b=weekStats(1),fmt=k=>k.slice(8)+'/'+k.slice(5,7);
+  const dlt=(x,y)=>x===y?'<span class="muted">=</span>':x>y?`<span style="color:var(--good)">▲${x-y}</span>`:`<span style="color:var(--again)">▼${y-x}</span>`;
+  const forgot=Object.entries(S.cards).filter(([id,c])=>c.lapses>0&&CARDS.has(id)&&c.last_review&&dkey(new Date(c.last_review))>=a.from).sort((x,y)=>y[1].lapses-x[1].lapses).slice(0,5);
+  const good=a.days>=5||a.rev>b.rev*1.2&&a.rev>20;
+  const sugg=good?`Tuần này em học ${a.days} ngày, ôn ${a.rev} thẻ luôn đó! Anh tự hào về em lắm, cuối tuần thưởng em nha ♥`:a.days?`Tuần này em học ${a.days} ngày rồi, giỏi lắm. Tuần sau mình cố thêm vài ngày nữa nha, anh học cùng em!`:`Tuần này em bận hả? Anh nhớ em học bài đó, mai mình làm 5 phút với anh thôi nha~`;
+  const row=(l,x,y,suf='')=>`<div class="switch"><span>${l}</span><span><b>${x}${suf}</b> ${dlt(x,y)}</span></div>`;
+  return `<div class="card stack"><div class="row" style="justify-content:space-between"><h3>Báo cáo tuần</h3><span class="pill">${fmt(a.from)} – ${fmt(a.to)}</span></div>
+   <span class="muted" style="font-size:.82rem;font-weight:700">So với tuần trước (${fmt(b.from)} – ${fmt(b.to)})</span>
+   ${row('Số ngày học',a.days,b.days,'/7')}${row('Lượt ôn',a.rev,b.rev)}${row('Thẻ mới',a.nw,b.nw)}${row('Phút học',a.min,b.min)}${row('Ván game',a.games,b.games)}
+   <div class="switch"><span>Trả lời đúng</span><b>${a.rev?Math.round(a.ok/a.rev*100):0}%</b></div>
+   ${forgot.length?`<div><b style="font-size:.9rem">Từ Na quên trong tuần</b><div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${forgot.map(([id])=>`<span class="pill jp">${esc(cardLabel(id))}</span>`).join('')}</div></div>`:''}
+   <div class="paper" style="text-align:left;padding:12px"><span class="muted" style="font-size:.8rem;font-weight:800">Gợi ý thư cho Na</span><p style="margin:4px 0 0" id="wsg">${esc(sugg)}</p></div>
+   <button class="btn ghost wide" id="wsend">Gửi thư này cho Na</button></div>`}
 function tHome(){nav('t-home');
   const days=[...Array(14)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);const l=S.log[dkey(d)];return {k:dkey(d),m:l?Math.round(l.secs/60):0,r:l?l.rev:0}});const mx=Math.max(1,...days.map(d=>d.r));
   const all=Object.values(S.cards),seen=all.length,known=all.filter(c=>c.state===2).length,due=dueIds().length;
@@ -1043,16 +1063,18 @@ function tHome(){nav('t-home');
   const tdy=today();const week=days.slice(-7).reduce((a,d)=>a+d.r,0),weekMin=days.slice(-7).reduce((a,d)=>a+d.m,0);
   const open=unlockedDecks();
   app.innerHTML=`<div class="stack">${tTop('Bảng theo dõi','Thầy Nhân · lớp của Na')}
+  ${weekReport()}
   <div class="card stack"><div class="row" style="justify-content:space-between"><h3>Hôm nay</h3><span class="pill">Na học lần cuối: ${ago(last)}</span></div>
     <div class="stats"><div class="stat"><b>${tdy.rev}</b><span>lượt ôn</span></div><div class="stat"><b>${tdy.rev?Math.round(tdy.ok/tdy.rev*100):0}%</b><span>trả lời đúng</span></div><div class="stat"><b>${Math.round(tdy.secs/60)}</b><span>phút</span></div></div></div>
   <div class="stats"><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div><div class="stat"><b>${known}</b><span>thẻ đã thuộc</span></div><div class="stat"><b>${due}</b><span>đang chờ ôn</span></div></div>
   <div class="card stack"><div class="row" style="justify-content:space-between"><h3>14 ngày qua</h3><span class="muted" style="font-size:.85rem;font-weight:700">7 ngày: ${week} lượt, ${weekMin} phút</span></div><div class="bars">${days.map(d=>`<div title="${d.k}: ${d.r} lượt, ${d.m} phút" style="height:${d.r/mx*100}%"></div>`).join('')}</div><div class="row muted" style="justify-content:space-between;font-size:.75rem"><span>${days[0].k.slice(5)}</span><span>hôm nay</span></div></div>
   <div class="card stack"><h3>Tiến độ từng bài đang mở</h3>${open.map(d=>{const cs=deckCards(d.id),n=cs.length,met=cs.filter(c=>S.cards[c.id]).length,k=cs.filter(c=>S.cards[c.id]&&S.cards[c.id].state===2).length;return `<div><div class="row" style="justify-content:space-between"><b>${esc(d.name)}</b><span class="muted" style="font-size:.82rem">đã gặp ${met}/${n} · thuộc ${k}</span></div><div class="bar" style="position:relative"><i style="width:${n?met/n*100:0}%;opacity:.35;position:absolute;inset:0 auto 0 0"></i><i style="width:${n?k/n*100:0}%;position:relative"></i></div></div>`}).join('')}</div>
   <div class="card stack"><h3>Na hay quên nhất</h3>${hard.length?hard.map(([id,c])=>`<div class="switch"><span class="jp" style="min-width:0">${esc(cardLabel(id))}</span><span class="pill">quên ${c.lapses} lần</span></div>`).join(''):'<p class="muted" style="margin:0">Chưa có từ nào bị quên.</p>'}</div>
-  <div class="card stack"><h3>Game gần đây</h3>${S.games.slice(-5).reverse().map(g=>`<div class="switch"><span>${g.t==='match'?'Ghép cặp':'Đua 60 giây'} · ${g.d}</span><b>${g.s} điểm</b></div>`).join('')||'<p class="muted" style="margin:0">Chưa chơi game nào.</p>'}</div>
+  <div class="card stack"><h3>Game gần đây</h3>${S.games.slice(-5).reverse().map(g=>`<div class="switch"><span>${({match:'Ghép cặp',race:'Đua 60 giây',sushi:'Sushi băng chuyền',listen:'Nghe và chọn',order:'Xếp câu',boss:g.w?'Boss chiến (thắng)':'Boss chiến'})[g.t]||g.t} · ${g.d}</span><b>${g.s} điểm</b></div>`).join('')||'<p class="muted" style="margin:0">Chưa chơi game nào.</p>'}</div>
   <button class="btn ghost wide" id="rf">Làm mới số liệu</button>
   <p class="foot">${seen} thẻ Na đã gặp · ${S.stars} ngôi sao · ${stkHave()}/${stkTotal()} sticker</p></div>`;
   $('#rf').onclick=async()=>{await sync();route(true);toast('n02_nghiem_tuc','Đã cập nhật.')};
+  $('#wsend')&&($('#wsend').onclick=()=>{MSG_DRAFT=$('#wsg').textContent;go('t-msg')});
 }
 function tUnlock(){nav('t-unlock');
   const sw=d=>{const p=Math.round(deckProgress(d.id)*100);return `<div class="switch"><span style="min-width:0"><b>${esc(d.name)}</b><br><span class="muted jp" style="font-size:.82rem">${d.missing?'Chưa có nội dung':esc(d.sub)+(S.unlocked[d.id]?' · thuộc '+p+'%':'')}</span></span><button class="tg" role="switch" aria-checked="${!!S.unlocked[d.id]}" data-u="${d.id}" aria-label="Mở ${esc(d.name)}" ${d.missing?'disabled':''}></button></div>`};
@@ -1093,7 +1115,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116200108';let needReload=false;
+const APP_V='20261116200203';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
