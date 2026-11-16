@@ -225,8 +225,18 @@ let tt=null;
 function toast(img,txt,ms=1900){$('#toastImg').src=IMG(img);$('#toastTxt').textContent=txt;const t=$('#toast');t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),ms)}
 
 /* ---------- chuỗi ngày, sao ---------- */
-function markStudy(){const k=dkey(),st=S.streak;if(st.last===k)return;const y=new Date();y.setDate(y.getDate()-1);st.count=(st.last===dkey(y))?st.count+1:1;st.last=k;st.best=Math.max(st.best,st.count);if(st.count%7===0)setTimeout(()=>{toast('06_om_nhau',`Chuỗi ${st.count} ngày liền! Ôm em một cái nè!`,2600);rain(20)},900)}
-function streakNow(){const st=S.streak;const y=new Date();y.setDate(y.getDate()-1);return (st.last===dkey()||st.last===dkey(y))?st.count:0}
+// Bỏ học: chuỗi không mất mà bị đóng băng (tối đa 7 ngày bỏ). Gỡ băng: ôn đủ 40 thẻ trong ngày hoặc trả 20 sao. Lúc đóng băng anh dỗi, nhạc buồn.
+const THAW_REV=40,THAW_COST=20,FREEZE_MAX=7;
+function gapDays(){const st=S.streak;if(!st.last)return 0;const a=new Date(st.last+'T00:00:00'),b=new Date(dkey()+'T00:00:00');return Math.round((b-a)/864e5)}
+function frozen(){if(LOCAL.role==='teacher')return false;const g=gapDays();return (S.streak.count||0)>0&&g>=2&&g<=FREEZE_MAX+1}
+function thaw(){const st=S.streak,k=dkey();st.count=(st.count||0)+1;st.last=k;st.best=Math.max(st.best||0,st.count);mStep=0;
+  setTimeout(()=>{toast('06_om_nhau',`Anh hết dỗi rồi! Chuỗi ${st.count} ngày chạy tiếp nè~`,2800);rain(22)},600)}
+function payThaw(){if(!frozen())return;if(starBal()<THAW_COST)return toast('n05_doi',`Em chưa đủ ${THAW_COST} sao, ôn ${THAW_REV} thẻ đi nha~`,2400);
+  S.buy=Object.assign({},S.buy,{['thaw-'+dkey()]:THAW_COST});thaw();save();sync();setTimeout(()=>route(),300)}
+function markStudy(){const k=dkey(),st=S.streak;if(st.last===k)return;
+  if(frozen()){if(today().rev>=THAW_REV){thaw();setTimeout(()=>{if(location.hash==='#home'||!location.hash)route()},800)}return}
+  const y=new Date();y.setDate(y.getDate()-1);st.count=(st.last===dkey(y))?st.count+1:1;st.last=k;st.best=Math.max(st.best,st.count);if(st.count%7===0)setTimeout(()=>{toast('06_om_nhau',`Chuỗi ${st.count} ngày liền! Ôm em một cái nè!`,2600);rain(20)},900)}
+function streakNow(){const st=S.streak;const y=new Date();y.setDate(y.getDate()-1);return (st.last===dkey()||st.last===dkey(y)||frozen())?st.count:0}
 function missedYesterday(){const st=S.streak;if(!st.last)return false;const y=new Date();y.setDate(y.getDate()-1);return st.last!==dkey()&&st.last!==dkey(y)}
 
 /* ---------- hàng đợi ôn ---------- */
@@ -337,7 +347,8 @@ function vHome(){nav('home');
   const due=dueIds().length,nl=Math.min(newLeft(),newIds(9999).length),st=streakNow();
   let img,msg;
   if(!LOCAL.hello){img='01_vui_bat_ngo';msg='Chào em Na! Từ nay mình học tiếng Nhật cùng nhau nha. Mỗi ngày một chút thôi là được.'}
-  else if(missedYesterday()){img='n05_doi';msg='Hôm qua em không học nè… anh dỗi đó! Ôn với anh một chút đi~'}
+  else if(frozen()){const g=gapDays()-1,need=Math.max(0,THAW_REV-today().rev);img=pick(['n05_doi','03_doi_gian']);msg=`Em bỏ học ${g} ngày rồi, anh dỗi đó! Chuỗi ${S.streak.count} ngày đang bị đóng băng ❄. Ôn thêm ${need} thẻ hôm nay hoặc trả ${THAW_COST} sao thì anh mới hết dỗi.`}
+  else if(missedYesterday()){img='n05_doi';msg='Lâu quá em không học nè… anh dỗi đó! Mình bắt đầu chuỗi mới với anh nha~'}
   else if(st&&st%7===0&&S.streak.last===dkey()){img='06_om_nhau';msg=`Chuỗi ${st} ngày rồi! Giỏi quá đi mất!`}
   else if(due>0){img='n06_nhac_gio';msg=`Còn ${due} thẻ đang chờ em ôn nè. Nhanh lắm, 5 phút thôi!`}
   else if(nl>0){img='g1_cuoi_vui';msg=S.newPerDay?`Hôm nay mình học ${nl} thẻ mới nha em!`:`Có ${nl} thẻ mới đang chờ. Mỗi lượt 20 thẻ, học bao nhiêu tùy em nha!`}
@@ -347,7 +358,8 @@ function vHome(){nav('home');
     <div class="top"><div><div class="muted" style="font-weight:800">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'numeric'})}</div><h1>Nihongo với Na</h1>${syncBadge()}</div><img src="${IMG('r_na')}" alt="Na" width="52" height="52" style="border-radius:50%"></div>
     ${letterHTML()}
     <div class="hero"><img src="${IMG(img)}" alt="Sticker anh Nhân"><div class="bubble">${esc(msg)}</div></div>
-    <div class="stats"><div class="stat"><b>${st}</b><span>ngày liền</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${t.rev}</b><span>thẻ hôm nay</span></div></div>
+    ${frozen()?`<div class="card frz"><div class="frzbar"><i style="transform:scaleX(${Math.min(1,today().rev/THAW_REV)})"></i></div><span class="muted" style="font-weight:800;font-size:.85rem">❄ Gỡ băng: ${Math.min(today().rev,THAW_REV)}/${THAW_REV} thẻ hôm nay</span><button class="btn ghost wide" id="thaw">Trả ${THAW_COST} sao gỡ băng · có ${starBal()} sao</button></div>`:''}
+    <div class="stats"><div class="stat"><b>${st}${frozen()?' ❄':''}</b><span>${frozen()?'đóng băng':'ngày liền'}</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${t.rev}</b><span>thẻ hôm nay</span></div></div>
     <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${G.done}/${G.total} thẻ</span></div>
       ${tripBar(G.pct,[1,2,3,4].map(i=>({at:i*20,on:G.pct>=i*20})),0)}
       <p class="muted" style="margin:0;font-size:.88rem;font-weight:700">${G.left?`Còn ${[G.due?G.due+' thẻ đến hạn ôn':'',G.nLeft?G.nLeft+' thẻ mới đề xuất':''].filter(Boolean).join(' và ')} nữa là tới chỗ anh`:G.done?'Xong hết thẻ hôm nay rồi! Muốn học thêm thì cứ bấm, anh thưởng sao nha':'Hôm nay không có thẻ nào đến hạn, em nghỉ ngơi nha'}</p></div>
@@ -360,7 +372,7 @@ function vHome(){nav('home');
     <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.own[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
-  $('#letter')&&($('#letter').onclick=openLetter);
+  $('#letter')&&($('#letter').onclick=openLetter);$('#thaw')&&($('#thaw').onclick=payThaw);
   LOCAL.hello=true;saveLocal();tripGo($('.goalcard'),G.pct);
   checkStickers();setTimeout(showReveal,700);
   $('#start')&&($('#start').onclick=()=>go('review'));
@@ -881,8 +893,9 @@ function tone(dest,f,t,dur,vol,type='sine'){const o=AC.createOscillator(),g=AC.c
 const CH=[[60,64,67],[57,60,64],[53,57,60],[55,59,62]],PENTA=[72,74,76,79,81,84];
 let NB=null;function noise(dest,t,dur,vol,hp=6000){if(!NB){NB=AC.createBuffer(1,AC.sampleRate*.5,AC.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
   const s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=NB;f.type='highpass';f.frequency.value=hp;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(dest);s.start(t);s.stop(t+dur+.02)}
+const MSAD={bpm:58,ch:[[57,60,64],[53,57,60],[50,53,57],[52,55,59]],sc:[69,71,72,74,76],lead:'sine',len:4,dens:[.35,.12],meter:8};
 const MDEF={bpm:76,ch:CH,sc:PENTA,lead:'sine',len:3,dens:[.6,.35],meter:8};
-function musicTick(){if(!AC||AC.state!=='running')return;const M=Object.assign({},MDEF,(SKIN()||{}).mus||{});const beat=60/M.bpm/2,mt=M.meter,lv=M.lead==='square'?.035:M.lead==='triangle'?.11:.09;
+function musicTick(){if(!AC||AC.state!=='running')return;const M=Object.assign({},MDEF,frozen()?MSAD:((SKIN()||{}).mus||{}));const beat=60/M.bpm/2,mt=M.meter,lv=M.lead==='square'?.035:M.lead==='triangle'?.11:.09;
   while(mNext<AC.currentTime+.4){const bar=Math.floor(mStep/mt)%M.ch.length,pos=mStep%mt,ch=M.ch[bar];let t=mNext;if(M.swing&&pos%2)t+=beat*M.swing;
     if(pos===0)tone(mGain,NOTE(ch[0]-12),t,beat*(mt-1),.16,'triangle');
     if(M.pad&&pos===0)ch.forEach(c=>tone(mGain,NOTE(c),t,beat*mt*1.1,.035,'sine'));
@@ -1041,7 +1054,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116194626';let needReload=false;
+const APP_V='20261116195112';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
