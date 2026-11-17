@@ -533,11 +533,21 @@ let lastPct=0;
 // mục tiêu hôm nay theo đường cong quên: thẻ đã ôn hôm nay + thẻ đang đến hạn + thẻ mới đề xuất (theo giới hạn nếu bật, không thì 1 lượt 20 thẻ)
 // Mục tiêu hôm nay = thẻ đã ôn hôm nay + thẻ đến hạn hôm nay chưa ôn + thẻ mới đề xuất còn lại.
 // Đếm theo thẻ, không theo lượt vuốt: thẻ học lại trong ngày đã tính là xong nên mục tiêu không tự tăng lên.
+// Trần thẻ mới theo phong độ 7 ngày học gần nhất (không tính hôm nay nên con số đứng yên trong ngày).
+// Nhớ tốt (đúng ≥85%) và học hết phần đề xuất thì trần tăng dần, tối đa 40; quên nhiều (đúng <75%) thì hạ còn 15 cho đỡ ngợp.
+const CAP_MAX=40;
+function newCap(){const k=dkey(),days=Object.keys(S.log).filter(d=>d<k&&(S.log[d].rev||0)>0).sort().slice(-7);
+  if(days.length<3)return {cap:BATCH,why:'mới học, đang theo dõi phong độ'};
+  let rev=0,ok=0,nw=0;for(const d of days){const l=S.log[d];rev+=l.rev||0;ok+=l.ok||0;nw+=l.nw||0}
+  const acc=rev?ok/rev:0,avg=nw/days.length,pc=Math.round(acc*100);
+  if(acc<.75)return {cap:15,acc:pc,why:`đang quên hơi nhiều (đúng ${pc}%), bớt thẻ mới cho chắc`};
+  if(acc>=.85&&avg>=BATCH*.8)return {cap:Math.min(CAP_MAX,Math.max(BATCH,Math.round(avg*1.2))),acc:pc,why:`nhớ tốt (đúng ${pc}%), học đều ${Math.round(avg)} thẻ mới/ngày nên tăng dần`};
+  return {cap:BATCH,acc:pc,why:`đúng ${pc}%, giữ nhịp`}}
 function dayGoal(){const t=today(),done=new Set(revTodayIds()),nw=t.nw||0;
   const dueRest=dueIds().filter(id=>!done.has(id)).length;
   const revDone=Math.max(0,done.size-nw),R=revDone+dueRest;           // khối lượng ôn của hôm nay, không đổi trong ngày
   // thẻ mới đề xuất: có giới hạn thì theo giới hạn; không giới hạn thì theo đường cong quên: ngày nhiều thẻ đến hạn thì bớt thẻ mới (20 → tối thiểu 5)
-  const nSug=S.newPerDay||Math.max(5,Math.min(BATCH,BATCH-Math.round(R/4)));
+  const nSug=S.newPerDay||Math.max(5,newCap().cap-Math.round(R/4));
   const nTarget=Math.min(nSug,nw+newIds(nSug).length);
   const nLeft=Math.max(0,nTarget-nw),total=R+nTarget,prog=revDone+Math.min(nw,nTarget),extra=Math.max(0,nw-nTarget);
   return {done:prog,cards:done.size,left:dueRest+nLeft,total,due:dueRest,nLeft,nSug,extra,pct:total?Math.min(100,Math.round(prog/total*100)):100}}
@@ -789,7 +799,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   app.innerHTML=`<div class="stack"><div class="row"><img src="${IMG('r_na')}" alt="" width="72" height="72" style="border-radius:50%"><div><h1>Lê Na</h1><div class="muted" style="font-weight:700">Học cùng anh Nhân</div>${syncBadge()}</div></div>
   <div class="stats"><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${S.streak.best}</b><span>chuỗi dài nhất</span></div><div class="stat"><b>${learnedN}</b><span>thẻ đã thuộc</span></div></div>
   <div class="card stack"><h3>Cài đặt</h3>
-    <div class="switch"><span><b>Đặt cố định số thẻ mới</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Cố định '+S.newPerDay+' thẻ mới mỗi ngày':'Đang dùng đề xuất thông minh: hôm nay '+dayGoal().nSug+' thẻ mới, tự giảm khi có nhiều thẻ cần ôn'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Đặt cố định số thẻ mới mỗi ngày"></button></div>
+    <div class="switch"><span><b>Đặt cố định số thẻ mới</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Cố định '+S.newPerDay+' thẻ mới mỗi ngày':'Đang dùng đề xuất thông minh: hôm nay '+dayGoal().nSug+' thẻ mới (trần '+newCap().cap+', '+newCap().why+'), tự giảm khi có nhiều thẻ cần ôn'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Đặt cố định số thẻ mới mỗi ngày"></button></div>
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
@@ -1130,7 +1140,7 @@ function tSettings(){nav('t-set');const tcode=ls.get('nwn-tcode','');
   app.innerHTML=`<div class="stack">${tTop('Cài đặt','Máy của thầy Nhân')}
   <div class="card stack"><h3>Mã của Na</h3><p style="margin:0"><b class="jp" style="user-select:all">${esc(CODE)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Đưa mã này cho Na. Mã này chỉ vào được phần học.</p></div>
   <div class="card stack"><h3>Mã giáo viên của anh</h3><p style="margin:0"><b class="jp" style="user-select:all;overflow-wrap:anywhere">${esc(tcode)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Chỉ anh giữ. Ai có mã này mới vào được bảng theo dõi và mở bài.</p></div>
-  <div class="card stack"><h3>Số thẻ mới mỗi ngày của Na</h3><div class="switch"><span><b>Đặt cố định</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Cố định '+S.newPerDay+' thẻ mới mỗi ngày':'Đang dùng đề xuất thông minh: hôm nay '+dayGoal().nSug+' thẻ mới (20, giảm dần tới 5 khi nhiều thẻ cần ôn)'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Đặt cố định số thẻ mới mỗi ngày"></button></div>
+  <div class="card stack"><h3>Số thẻ mới mỗi ngày của Na</h3><div class="switch"><span><b>Đặt cố định</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Cố định '+S.newPerDay+' thẻ mới mỗi ngày':'Đang dùng đề xuất thông minh: hôm nay '+dayGoal().nSug+' thẻ mới. Trần hiện tại '+newCap().cap+' ('+newCap().why+'), trừ bớt khi nhiều thẻ cần ôn, thấp nhất 5'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Đặt cố định số thẻ mới mỗi ngày"></button></div>
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}</div>
   <div class="card stack"><h3>Báo thư ngay lên máy Na</h3><p class="muted" style="margin:0;font-size:.85rem">${ls.get('nwn-ghtok','')?'Đã bật. Gửi thư xong khoảng 1 phút là máy Na báo.':'Dán token GitHub (chỉ quyền Actions của repo app) để thư báo ngay. Token chỉ lưu trên máy này.'}</p>
     <label class="field" for="ghtok">Token GitHub<input id="ghtok" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" value="${ls.get('nwn-ghtok','')?'••••••••':''}"></label>
@@ -1156,7 +1166,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261117182434';let needReload=false;
+const APP_V='20261117183108';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
