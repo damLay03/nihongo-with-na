@@ -374,7 +374,7 @@ function vHome(){nav('home');
       ${due+nl?'':(newIds(1).length?'<button class="btn ghost wide" id="extra">Học thêm 5 thẻ mới</button>':'')}
       <p class="muted" style="margin:0;font-size:.88rem">Chạm thẻ để lật, vuốt trái là Quên, vuốt phải là Được. App tự tính ngày ôn lại theo đường cong quên, giống Anki.</p>
     </div>
-    <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>S.own[s.id]).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
+    <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>own(s.id)).sort((a,b)=>own(a.id)-own(b.id)).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
   $('#letter')&&($('#letter').onclick=openLetter);$('#thaw')&&($('#thaw').onclick=payThaw);$('#qk')&&($('#qk').onclick=()=>go('quick'));
@@ -392,7 +392,7 @@ function quickCard(){if(!LOCAL.hello)return '';const q=qState(),n=q.done.filter(
   return `<button class="card quick" id="qk"><span class="qic">⚡</span><span style="min-width:0;text-align:left"><b>${n?'Tiếp tục 5 phút với anh':'Lười quá? 5 phút với anh thôi'}</b><br><span class="muted" style="font-size:.85rem;font-weight:700">8 thẻ, 1 ván nghe, 2 câu xếp · xong được 5 sao</span></span><span class="qdots">${q.done.map(d=>`<i class="${d?'on':''}"></i>`).join('')}</span></button>`}
 function quickDone(i){const q=qState();q.done[i]=1;saveLocal();QK=null;go('quick')}
 function vQuick(){nav('home');const q=qState();const nx=q.done.findIndex(d=>!d);
-  if(nx<0&&!q.paid){q.paid=1;saveLocal();S.stars+=5;markStudy();save();sync();setTimeout(()=>{rain(28)},200)}
+  if(nx<0&&!q.paid){q.paid=1;saveLocal();S.stars+=5;track('quick');markStudy();save();sync();setTimeout(()=>{rain(28)},200)}
   const all=nx<0;
   app.innerHTML=`<div class="stack"><div class="top"><button class="back" onclick="go('home')" aria-label="Về trang chính">‹</button><h2 style="flex:1">5 phút với anh</h2></div>
    <div class="hero"><img src="${IMG(all?'08_an_mung':nx===0?'n04_co_vu':'n03_ninh_na')}" alt=""><div class="bubble">${all?'Xong hết rồi! Có 5 phút thôi mà em làm giỏi ghê. Thưởng em 5 sao nè!':nx===0?'Mình làm nhanh 3 bước thôi, xong là được 5 sao nha em!':'Giỏi quá, làm tiếp bước sau nha~'}</div></div>
@@ -810,47 +810,76 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
 }
 
 /* ---------- bộ sưu tập sticker ---------- */
-// Mỗi bộ có một thước đo; sticker trong bộ mở dần theo ngưỡng. Bộ chưa có ảnh hiện "Sắp ra mắt".
-// Bộ 1–2: nhiệm vụ khám phá app (làm theo thứ tự nào cũng được). Bộ 3 trở đi: mua bằng sao.
+// Mỗi bộ 16 sticker, id "pX-NN": NN là chỗ trong app mà sticker đó thay (xem CTX bên dưới).
+// Bộ 1–2: nhiệm vụ khám phá app (làm theo thứ tự nào cũng được). Bộ 3–8: mua bằng sao.
 const evN=k=>(S.ev&&S.ev[k])||0;
+const gamesN=t=>S.games.filter(g=>g.t===t).length,bossW=()=>S.games.filter(g=>g.t==='boss'&&g.w).length;
+const revAll=()=>Object.values(S.log).reduce((a,l)=>a+(l.rev||0),0),dayN=()=>Object.values(S.log).filter(l=>(l.rev||0)>0).length;
+const QP=(cap,quest,ok)=>[cap,quest,ok];
 const STK=[
  {id:'p1',name:'Học sinh Nhật',kind:'quest',items:[
-  ['1-03','Na giơ tay phát biểu','Học xong một lượt ôn thẻ',()=>evN('finish')>=1],
-  ['1-02','Anh ôm chồng sách','Mở xem một bài học',()=>evN('lesson')>=1],
-  ['1-07','Anh ngại ngùng cố lên','Bấm loa nghe phát âm 5 lần',()=>evN('say')>=5],
-  ['1-06','Vẽ tim lên bảng','Tô đúng một chữ ở bảng chữ cái',()=>evN('trace')>=1],
-  ['1-08','Na được điểm cao','Chơi một ván Ghép cặp',()=>S.games.some(g=>g.t==='match')],
-  ['1-04','Chung ô ngày mưa','Vuốt trái một thẻ em quên (không sao đâu)',()=>evN('forget')>=1],
-  ['1-09','Ăn cơm nắm sau giờ học','Xem phần Ngữ pháp của một bài',()=>evN('gram')>=1],
-  ['1-05','Na ngủ gật, anh khoác áo','Học đủ 20 phút trong một ngày',()=>Object.values(S.log).some(l=>(l.secs||0)>=1200)],
-  ['1-01','Nắm tay cùng tới trường','Học 2 ngày khác nhau',()=>Object.values(S.log).filter(l=>(l.rev||0)>0).length>=2]]},
+  QP('Na mở cửa lớp chào anh','Học xong một lượt ôn thẻ',()=>evN('finish')>=1),
+  QP('Anh dỗi ở bàn học','Chơi một ván Xếp câu',()=>gamesN('order')>=1),
+  QP('Chung ô trên sân thượng','Học 2 ngày khác nhau',()=>dayN()>=2),
+  QP('Anh lớp trưởng rung chuông','Làm xong 5 phút với anh',()=>evN('quick')>=1),
+  QP('Anh mở tủ giày','Đọc một lá thư của anh',()=>(S.msgs||[]).some(m=>m.seen)),
+  QP('Na nằm dưới gốc anh đào','Chơi một ván Nghe và chọn',()=>gamesN('listen')>=1),
+  QP('Vòng tay trái tim','Tô đúng một chữ ở bảng chữ cái',()=>evN('trace')>=1),
+  QP('Anh phi máy bay giấy','Chơi một ván Sushi băng chuyền',()=>gamesN('sushi')>=1),
+  QP('Anh lau nước mắt cho Na','Vuốt trái một thẻ em quên (không sao đâu)',()=>evN('forget')>=1),
+  QP('Anh ôm hoa mắt trái tim','Chơi một ván Ghép cặp',()=>gamesN('match')>=1),
+  QP('Hai đứa giơ ống bằng','Ôn tổng cộng 100 thẻ',()=>revAll()>=100),
+  QP('Na gục bên chồng sách','Học đủ 20 phút trong một ngày',()=>Object.values(S.log).some(l=>(l.secs||0)>=1200)),
+  QP('Anh thì thầm sau sách','Bấm loa nghe phát âm 5 lần',()=>evN('say')>=5),
+  QP('Anh làm giám thị','Xem phần Ngữ pháp của một bài',()=>evN('gram')>=1),
+  QP('Na rối với bài kiểm tra','Đánh bại một Boss',()=>bossW()>=1),
+  QP('Anh cổ vũ bằng bông','Mở xem một bài học',()=>evN('lesson')>=1)]},
  {id:'p2',name:'Lễ hội Yukata',kind:'quest',items:[
-  ['2-02','Na ăn kẹo táo','Chơi một ván Đua 60 giây',()=>S.games.some(g=>g.t==='race')],
-  ['2-03','Anh vớt được cá vàng','Mở xem chi tiết một chữ Kanji',()=>evN('kanji')>=1],
-  ['2-04','Na phe phẩy quạt','Đọc phần Hội thoại của một bài',()=>evN('conv')>=1],
-  ['2-05','Anh mê takoyaki','Bật nhắc học ở tab Tớ',()=>Object.values(S.push||{}).some(v=>v&&v.sub&&v.role!=='teacher')],
-  ['2-09','Na đeo mặt nạ cáo','Bấm xem to một sticker trong bộ sưu tập',()=>evN('sview')>=1],
-  ['2-06','Cùng chắp tay ước','Lưu hoặc chia sẻ một sticker',()=>evN('share')>=1],
-  ['2-10','Pháo bông que trên cầu','Đúng liền 10 thẻ không quên cái nào',()=>evN('combo')>=10],
-  ['2-07','Đi lễ đền','Ôn sạch hết thẻ trong một ngày',()=>evN('alldone')>=1],
-  ['2-01','Ngắm pháo hoa cùng nhau','Học liền 3 ngày không nghỉ',()=>Math.max(S.streak.best||0,streakNow())>=3]]},
- {id:'p3',name:'Bếp ramen',kind:'shop',items:[['3-03','Na nếm nước dùng',40],['3-04','Anh làm cháy rồi…',50],['3-08','Anh đeo găng lò',60],['3-02','Anh kéo mì',80],['3-05','Na nặn cơm nắm',100],['3-07','Na bưng sushi',120],['3-06','Anh đút Na ăn',150],['3-01','Bát ramen của hai đứa',200]]},
- {id:'p4',name:'Đồ ngủ thú',kind:'shop',items:[['4-05','Mèo xám dỗi',150],['4-02','Thỏ Na nhảy cẫng',180],['4-03','Mèo anh vẫy tay',220],['4-04','Na ôm gối ngôi sao',260],['4-08','Na uống ca cao',300],['4-07','Hai đứa giận nhau',350],['4-09','Anh đắp chăn cho Na',400],['4-01','Cuộn chăn cùng nhau',500]]},
- {id:'p5',name:'Phi hành gia',soon:1},{id:'p6',name:'Hoàng tử và công chúa',soon:1},{id:'p7',name:'Mùa đông Tokyo',soon:1},{id:'p8',name:'Tốt nghiệp N5',soon:1}];
+  QP('Na nấp sau đèn lồng','Bấm xem to một sticker trong bộ sưu tập',()=>evN('sview')>=1),
+  QP('Anh dỗi cùng cá vàng','Mua một sticker bằng sao',()=>Object.keys(S.buy||{}).some(k=>!/^thaw/.test(k))),
+  QP('Ôm nhau dưới pháo hoa','Học liền 3 ngày không nghỉ',()=>Math.max(S.streak.best||0,streakNow())>=3),
+  QP('Anh cầm pháo que','Đúng liền 20 thẻ không quên cái nào',()=>evN('combo')>=20),
+  QP('Anh bắn trúng gấu bông','Đánh bại 3 Boss',()=>bossW()>=3),
+  QP('Na ăn đá bào','Chơi một ván Đua 60 giây',()=>gamesN('race')>=1),
+  QP('Pháo que vẽ tim','Đúng liền 10 thẻ không quên cái nào',()=>evN('combo')>=10),
+  QP('Anh đeo mặt nạ cáo hù','Học 5 ngày khác nhau',()=>dayN()>=5),
+  QP('Anh tặng Na cá vàng','Ôn tổng cộng 300 thẻ',()=>revAll()>=300),
+  QP('Anh quạt cho Na','Đọc phần Hội thoại của một bài',()=>evN('conv')>=1),
+  QP('Vớt được cá vàng','Mở xem chi tiết một chữ Kanji',()=>evN('kanji')>=1),
+  QP('Na mỏi chân bỏ guốc','Ôn sạch hết thẻ trong một ngày',()=>evN('alldone')>=1),
+  QP('Anh thì thầm sau quạt','Học đủ 15 ngày',()=>dayN()>=15),
+  QP('Anh làm takoyaki','Bật nhắc học ở tab Tớ',()=>Object.values(S.push||{}).some(v=>v&&v.sub&&v.role!=='teacher')),
+  QP('Na đọc quẻ bói','Học liền 7 ngày không nghỉ',()=>Math.max(S.streak.best||0,streakNow())>=7),
+  QP('Treo điều ước cùng nhau','Lưu hoặc chia sẻ một sticker',()=>evN('share')>=1)]},
+ {id:'p3',name:'Bếp ramen',kind:'shop',base:30,step:10,caps:['Na vén rèm quán chào','Anh dỗi bên nồi','Ôm nhau bên bát ramen','Anh giục: hết giờ rồi!','Anh hất mì bay','Na tắm bồn ramen','Cơm nắm trái tim','Anh ăn vụng gyoza','Anh thổi nguội đút Na','Anh dâng bát ramen','Cụng bát ăn mừng','Na gục bên chồng bát','Anh nấp sau tấm menu','Anh nếm nước dùng','Na rối mì trên đầu','Na chép công thức']},
+ {id:'p4',name:'Đồ ngủ thú',kind:'shop',base:40,step:12,caps:['Thỏ Na vẫy tay','Mèo anh dỗi trong hộp','Ôm nhau trong chăn','Mèo anh reo đồng hồ','Mèo anh nghịch len','Mèo anh uống ca cao','Trốn chăn cùng nhau','Mèo anh giơ móng','Anh ôm vỗ về Na','Thỏ Na ôm thỏ bông','Chơi game cùng nhau','Na ngủ trên mây','Áp má thì thầm','Mèo anh đọc sách','Thỏ Na rối não','Ngồi sát bên nhau']},
+ {id:'p5',name:'Phi hành gia',kind:'shop',base:50,step:15,caps:['Na bay ra chào','Anh dỗi trên hành tinh','Ôm nhau giữa không gian','Anh chỉ bảng đếm ngược','Anh bắt được sao','Na ngủ trên vầng trăng','Hai phi hành gia','Anh và bạn ngoài hành tinh','Anh giữ tay Na','Na đỏ mặt','Cưỡi tên lửa','Na lơ lửng chóng mặt','Ngắm Trái Đất cùng nhau','Anh xem nhiệm vụ','Na rối với bản đồ sao','Vẫy gậy phát sáng']},
+ {id:'p6',name:'Hoàng tử và công chúa',kind:'shop',base:60,step:18,caps:['Công chúa Na vẫy chào','Anh dỗi trên ngai vàng','Khiêu vũ ôm nhau','Anh giơ đồng hồ cát','Hoàng tử giơ kiếm','Na nghỉ trên ghế nhung','Cùng nâng vương miện','Anh nháy mắt chỉnh vương miện','Anh tặng hoa hồng','Anh quỳ nắm tay Na','Nâng ly ăn mừng','Na mệt trên bậc thang','Anh thì thầm sau quạt','Anh làm thầy dạy','Na rối với bản đồ','Na viết bài, anh hộ vệ']},
+ {id:'p7',name:'Mùa đông Tokyo',kind:'shop',base:70,step:20,caps:['Na vẫy găng tay','Anh vùi trong tuyết','Quàng chung khăn','Anh giơ đồng hồ người tuyết','Anh đắp người tuyết','Na trong kotatsu','Thiên thần tuyết','Anh ném bóng tuyết','Ôm nhau sưởi ấm','Anh mời lon nước ấm','Trượt xe tuyết','Na đóng băng rồi','Anh thì thầm trong gió','Anh nghiêm túc cầm sổ','Na soi bông tuyết','Học bên kotatsu']},
+ {id:'p8',name:'Tốt nghiệp N5',kind:'shop',base:80,step:24,caps:['Na khoe ống bằng','Anh dỗi ôm bó hoa','Ôm nhau ngày tốt nghiệp','Anh bấm đồng hồ','Anh khoe giấy khen','Na nằm ôm bằng','Hai ống bằng trái tim','Anh nháy mắt bên Na','Ôm Na thật chặt','Na ôm hoa cười tươi','Anh tung mũ','Na ngồi thở dài','Ngắm hoa anh đào','Anh ôn bài căng não','Na rối với đề thi','Cổ vũ bằng bông']}];
+const NN=i=>String(i+1).padStart(2,'0');
+STK.forEach(p=>{if(p.kind==='quest')p.items=p.items.map((q,i)=>[p.id+'-'+NN(i),...q]);else{p.items=p.caps.map((c,i)=>[p.id+'-'+NN(i),c,p.base+p.step*i]);delete p.caps}});
+// Sticker bộ cũ Na đã có thì tính là đã có sticker tương ứng ở bộ mới (chỉ đọc, không ghi vào dữ liệu học)
+const OLD={'1-03':'p1-01','1-02':'p1-16','1-07':'p1-13','1-06':'p1-07','1-08':'p1-10','1-04':'p1-09','1-09':'p1-14','1-05':'p1-12','1-01':'p1-03',
+ '2-09':'p2-01','2-02':'p2-06','2-03':'p2-11','2-04':'p2-10','2-05':'p2-14','2-06':'p2-16','2-10':'p2-07','2-07':'p2-12','2-01':'p2-03',
+ '3-03':'p3-01','3-04':'p3-02','3-08':'p3-04','3-02':'p3-05','3-05':'p3-07','3-07':'p3-10','3-06':'p3-09','3-01':'p3-03',
+ '4-05':'p4-02','4-02':'p4-01','4-03':'p4-08','4-04':'p4-12','4-08':'p4-06','4-07':'p4-13','4-09':'p4-07','4-01':'p4-03'};
+const ALIAS={};for(const [o,n] of Object.entries(OLD))ALIAS[n]=o;
+const own=id=>(S.own&&(S.own[id]||(ALIAS[id]&&S.own[ALIAS[id]])))||0;
 const SIMG=f=>'img/s/'+f+'.webp';
 const STK_ALL=STK.filter(p=>p.items).flatMap(p=>p.items.map(it=>p.kind==='quest'?{id:it[0],cap:it[1],p,quest:it[2],ok:it[3]}:{id:it[0],cap:it[1],p,price:it[2]}));
-const stkTotal=()=>STK_ALL.length,stkHave=()=>STK_ALL.filter(s=>S.own[s.id]).length;
+const stkTotal=()=>STK_ALL.length,stkHave=()=>STK_ALL.filter(s=>own(s.id)).length;
 const spent=()=>Object.values(S.buy||{}).reduce((a,v)=>a+(+v||0),0);
 const starBal=()=>Math.max(0,(S.stars||0)-spent());
 function gotNew(got){if(!got.length)return;LOCAL.pend3=(LOCAL.pend3||[]).concat(got);LOCAL.fresh3=(LOCAL.fresh3||[]).concat(got);saveLocal();save()}
 // nhiệm vụ xong thì tặng sticker; bộ mua bằng sao không tự mở
 function checkStickers(){if(isT()||!CODE)return [];const got=[];
-  for(const s of STK_ALL){if(S.own[s.id]||!s.ok)continue;let ok=false;try{ok=s.ok()}catch(e){}if(ok){S.own[s.id]=Date.now();got.push(s.id)}}
+  for(const s of STK_ALL){if(own(s.id)||!s.ok)continue;let ok=false;try{ok=s.ok()}catch(e){}if(ok){S.own[s.id]=Date.now();got.push(s.id)}}
   gotNew(got);return got}
 // ghi lại thao tác khám phá app
 function track(k,max){if(isT()||!CODE)return;S.ev=S.ev||{};if(max!=null){if(max<=(S.ev[k]||0))return;S.ev[k]=max}else S.ev[k]=(S.ev[k]||0)+1;
   save();const g=checkStickers();if(!g.length)return;if(/^#(review|game-)/.test(location.hash))setTimeout(()=>stkPing(g[0]),300);else setTimeout(showReveal,500)}
-function buySticker(id){const s=STK_ALL.find(x=>x.id===id);if(!s||!s.price||S.own[id])return;if(starBal()<s.price)return toast('n05_doi',`Còn thiếu ${s.price-starBal()} sao nữa nha em~`);
+function buySticker(id){const s=STK_ALL.find(x=>x.id===id);if(!s||!s.price||own(id))return;if(starBal()<s.price)return toast('n05_doi',`Còn thiếu ${s.price-starBal()} sao nữa nha em~`);
   sfx('coin');S.buy=S.buy||{};S.buy[id]=s.price;S.own[id]=Date.now();gotNew([id]);sync();closeModal();showReveal()}
 // thông báo nhỏ khi đang ôn, không chặn tay
 function stkPing(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const el=document.createElement('div');el.className='stkping';el.innerHTML=`<img src="${SIMG(id)}" alt=""><span><b>Sticker mới!</b><br>Học xong mở quà nha</span>`;
@@ -861,7 +890,7 @@ function showReveal(){const q=LOCAL.pend3||[];if(!q.length||isT()||$('#gift')||/
   const step=()=>{const id=q[i],s=STK_ALL.find(x=>x.id===id);if(!s){next();return}
     root.innerHTML=`<div class="gin"><p class="gt">${n>1?`Quà ${i+1}/${n}`:'Em có quà nè!'}</p>
       <button class="gbox" id="gbox" aria-label="Mở quà"><span class="rays" aria-hidden="true"></span><span class="gface gfront"><span class="ribbon"></span><span class="bow">🎀</span><b>Chạm để mở</b></span><span class="gface gback"><img src="${SIMG(id)}" alt="${esc(s.cap)}"></span></button>
-      <div class="gcap"><b>${esc(s.cap)}</b><span>Bộ ${esc(s.p.name)} · ${STK_ALL.filter(x=>x.p===s.p&&S.own[x.id]).length}/${s.p.items.length}</span></div>
+      <div class="gcap"><b>${esc(s.cap)}</b><span>Bộ ${esc(s.p.name)} · ${STK_ALL.filter(x=>x.p===s.p&&own(x.id)).length}/${s.p.items.length}</span></div>
       <button class="btn wide gnext" id="gnext">${i<n-1?'Mở quà tiếp':'Cất vào bộ sưu tập'}</button></div>`;
     const b=$('#gbox');let opened=false;const im=new Image();im.src=SIMG(id);
     const open=()=>{if(opened)return;opened=true;sfx('gift');root.classList.add('opened');const [x,y]=mid(b);setTimeout(()=>{burst(x,y,16);rain(26)},260)};
@@ -870,12 +899,10 @@ function showReveal(){const q=LOCAL.pend3||[];if(!q.length||isT()||$('#gift')||/
   const next=()=>{i++;if(i<n)step();else{LOCAL.pend3=[];saveLocal();root.classList.add('bye');setTimeout(()=>root.remove(),250);if(location.hash!=='#album')go('album');else vAlbum()}};
   step();return true}
 // Bộ đã sưu tập đủ thì dùng thay sticker mặc định của app. Chỗ nào bộ không có sticker hợp thì giữ sticker mặc định.
-const THEMES={
- p1:{'01_vui_bat_ngo':'1-03','06_om_nhau':'1-01','02_ban_tay_tim':'1-06','g1_cuoi_vui':'1-08','n03_ninh_na':'1-07','g6_chu_v':'1-08','08_an_mung':'1-08','07_lo_dau':'1-09','na04_met':'1-05','05_vo_ve_an_ui':'1-04','na01_hoc_bai':'1-02','n04_co_vu':'1-07','n02_nghiem_tuc':'1-06'},
- p2:{'01_vui_bat_ngo':'2-09','06_om_nhau':'2-10','02_ban_tay_tim':'2-01','g1_cuoi_vui':'2-02','n03_ninh_na':'2-05','g6_chu_v':'2-09','08_an_mung':'2-03','07_lo_dau':'2-04','na04_met':'2-04','05_vo_ve_an_ui':'2-07','n04_co_vu':'2-03','na01_hoc_bai':'2-06'},
- p3:{'01_vui_bat_ngo':'3-08','06_om_nhau':'3-01','02_ban_tay_tim':'3-06','g1_cuoi_vui':'3-07','n03_ninh_na':'3-02','g6_chu_v':'3-07','08_an_mung':'3-01','07_lo_dau':'3-05','n01_nhay':'3-04','05_vo_ve_an_ui':'3-06','04_thi_tham':'3-03','n04_co_vu':'3-08','na01_hoc_bai':'3-03'},
- p4:{'01_vui_bat_ngo':'4-03','06_om_nhau':'4-01','02_ban_tay_tim':'4-09','g1_cuoi_vui':'4-02','n03_ninh_na':'4-02','g6_chu_v':'4-04','08_an_mung':'4-02','07_lo_dau':'4-08','na04_met':'4-09','n05_doi':'4-05','n01_nhay':'4-07','05_vo_ve_an_ui':'4-01','n04_co_vu':'4-03'}};
-const packDone=id=>{const p=STK.find(x=>x.id===id);return !!(p&&p.items&&p.items.every(it=>S.own[it[0]]))};
+const CTX=[['01_vui_bat_ngo','g5_na_tron_mat_wow'],['n05_doi','03_doi_gian','g4_na_doi_anh_boi_roi'],['06_om_nhau'],['n06_nhac_gio'],['g1_cuoi_vui'],['07_lo_dau'],['02_ban_tay_tim'],['n01_nhay','g2_na_choc_ma'],
+ ['05_vo_ve_an_ui','g3_tua_vai'],['n03_ninh_na'],['08_an_mung','g6_chu_v','na02_tu_hao'],['na04_met'],['04_thi_tham'],['n02_nghiem_tuc'],['na03_boi_roi'],['na01_hoc_bai','n04_co_vu']];
+const THEMES={};STK.forEach(p=>{const m={};CTX.forEach((ns,i)=>ns.forEach(n=>m[n]=p.id+'-'+NN(i)));THEMES[p.id]=m});
+const packDone=id=>{const p=STK.find(x=>x.id===id);return !!(p&&p.items&&p.items.every(it=>own(it[0])))};
 function themeMap(){if(isT())return null;const t=LOCAL.theme;return t&&THEMES[t]&&packDone(t)?THEMES[t]:null}
 // Chủ đề đi kèm bộ sticker: màu + hoa văn nền (CSS data-skin), hạt bay khi ăn mừng, nhạc nền và tiếng hiệu ứng
 const SKINS={
@@ -894,14 +921,14 @@ function applySkin(){const id=skinId(),r=document.documentElement;if((r.dataset.
 function vAlbum(){nav('album');checkStickers();const fresh=new Set(LOCAL.fresh3||[]);const bal=starBal();
   const packs=STK.map(p=>{
     if(p.soon)return `<div class="card pack soon"><div class="row" style="justify-content:space-between"><h3>${esc(p.name)}</h3><span class="pill">Sắp ra mắt</span></div><div class="sgrid">${'<div class="scell q">?</div>'.repeat(3)}</div><p class="muted" style="margin:0;font-size:.85rem">Bộ này đang vẽ, có rồi sẽ mua bằng sao nha</p></div>`;
-    const its=STK_ALL.filter(x=>x.p===p),have=its.filter(x=>S.own[x.id]).length,done=have===its.length;
-    const cell=(x,i)=>S.own[x.id]?`<button class="scell${fresh.has(x.id)?' new':''}" data-st="${x.id}" style="--i:${i}" aria-label="${esc(x.cap)}"><img src="${SIMG(x.id)}" alt="" loading="lazy"></button>`
+    const its=STK_ALL.filter(x=>x.p===p),have=its.filter(x=>own(x.id)).length,done=have===its.length;
+    const cell=(x,i)=>own(x.id)?`<button class="scell${fresh.has(x.id)?' new':''}" data-st="${x.id}" style="--i:${i}" aria-label="${esc(x.cap)}"><img src="${SIMG(x.id)}" alt="" loading="lazy"></button>`
       :`<button class="scell lock${x.price?' shop':''}${x.price&&bal>=x.price?' can':''}" data-lk="${x.id}" style="--i:${i}" aria-label="${esc(x.price?'Mua với '+x.price+' sao':x.quest)}"><img src="${SIMG(x.id)}" alt="" loading="lazy"><small>${x.price?'★ '+x.price:'?'}</small></button>`;
-    const todo=its.filter(x=>!S.own[x.id]&&x.quest);
+    const todo=its.filter(x=>!own(x.id)&&x.quest);
     const sub=p.kind==='quest'?'Nhiệm vụ khám phá app':'Mua bằng sao';
     return `<div class="card pack stack"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted" style="font-size:.82rem;font-weight:700">${sub}</span></span><span class="pill">${have}/${its.length}</span></div>
       <div class="sgrid">${its.map(cell).join('')}</div>
-      ${todo.length?`<div class="qlist">${todo.map(x=>`<button class="qrow" data-lk="${x.id}"><span class="qdot" aria-hidden="true"></span><span>${esc(x.quest)}</span></button>`).join('')}</div>`:''}
+      ${todo.length?`<div class="qlist">${todo.slice(0,3).map(x=>`<button class="qrow" data-lk="${x.id}"><span class="qdot" aria-hidden="true"></span><span>${esc(x.quest)}</span></button>`).join('')}${todo.length>3?`<p class="muted" style="margin:0;font-size:.82rem;font-weight:700">Còn ${todo.length-3} nhiệm vụ nữa, chạm sticker khóa để xem nha</p>`:''}</div>`:''}
       ${done?`<button class="btn ${LOCAL.theme===p.id?'':'ghost '}wide" data-th="${p.id}">${LOCAL.theme===p.id?'Đang dùng chủ đề này · bấm để về mặc định':'Dùng chủ đề này cho cả app'}</button>`:`<p class="muted" style="margin:0;font-size:.82rem">Đủ bộ thì đổi được cả app theo chủ đề này: sticker, màu, hình nền, nhạc</p>`}</div>`}).join('');
   app.innerHTML=`<div class="stack"><div class="top"><div><h1>Bộ sưu tập</h1><div class="muted" style="font-weight:800">${stkHave()}/${stkTotal()} sticker</div></div><img src="${IMG('02_ban_tay_tim')}" alt="" width="64" height="64" class="floaty"></div>
     <div class="card wallet"><span class="wstar" aria-hidden="true">★</span><span><b>${bal} sao</b><br><span class="muted" style="font-size:.85rem;font-weight:700">Vuốt phải đúng thẻ, chơi game, tô chữ để có thêm sao</span></span></div>${packs}</div>`;
@@ -910,14 +937,14 @@ function vAlbum(){nav('album');checkStickers();const fresh=new Set(LOCAL.fresh3|
   app.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{const id=b.dataset.th;LOCAL.theme=LOCAL.theme===id?'':id;saveLocal();applySkin();const [x,y]=mid(b);vAlbum();if(LOCAL.theme){burst(x,y,12);toast('g1_cuoi_vui','Đổi xong! Cả app giờ theo chủ đề '+STK.find(p=>p.id===id).name+', nghe nhạc mới luôn nè~',2400)}else toast('g1_cuoi_vui','Về sticker mặc định rồi nha',1800)});
   if(fresh.size){LOCAL.fresh3=[];saveLocal()}
   setTimeout(showReveal,350)}
-function lockSheet(id){const x=STK_ALL.find(s=>s.id===id);if(!x||S.own[id])return;const bal=starBal();
+function lockSheet(id){const x=STK_ALL.find(s=>s.id===id);if(!x||own(id))return;const bal=starBal();
   openSheet('Sticker đang khóa',`<div class="row" style="justify-content:space-between"><h2>${x.price?'Mua sticker':'Nhiệm vụ'}</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
    <img class="sbig lockbig" src="${SIMG(id)}" alt="">
    ${x.price?`<p style="margin:0;text-align:center;font-weight:900;font-size:1.2rem">★ ${x.price} sao</p><p class="muted" style="margin:0;text-align:center;font-weight:700">Em đang có ${bal} sao${bal<x.price?`, còn thiếu ${x.price-bal} sao`:''}</p>
      <button class="btn wide" id="buy" ${bal<x.price?'disabled':''}>${bal<x.price?'Chưa đủ sao':'Mua và mở quà'}</button>`
    :`<p style="margin:0;text-align:center;font-weight:900;font-size:1.1rem">${esc(x.quest)}</p><p class="muted" style="margin:0;text-align:center;font-weight:700">Làm xong là sticker tự mở nha</p>`}`);
   $('#buy')&&($('#buy').onclick=()=>buySticker(id))}
-function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const d=new Date(S.own[id]);
+function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const d=new Date(own(id));
   openSheet(s.cap,`<div class="row" style="justify-content:space-between"><h2>${esc(s.cap)}</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
    <img class="sbig" src="${SIMG(id)}" alt="${esc(s.cap)}">
    <p class="muted" style="margin:0;text-align:center;font-weight:700">Bộ ${esc(s.p.name)} · nhận ngày ${d.toLocaleDateString('vi-VN')}</p>
@@ -1129,7 +1156,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261117171609';let needReload=false;
+const APP_V='20261117182434';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
