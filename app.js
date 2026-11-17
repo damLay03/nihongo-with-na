@@ -364,10 +364,10 @@ function vHome(){nav('home');
     <div class="hero"><img src="${IMG(img)}" alt="Sticker anh Nhân"><div class="bubble">${esc(msg)}</div></div>
     ${quickCard()}
     ${frozen()?`<div class="card frz"><div class="frzbar"><i style="transform:scaleX(${Math.min(1,revTodayIds().length/THAW_REV)})"></i></div><span class="muted" style="font-weight:800;font-size:.85rem">❄ Gỡ băng: ${Math.min(revTodayIds().length,THAW_REV)}/${THAW_REV} thẻ hôm nay</span><button class="btn ghost wide" id="thaw">Trả ${THAW_COST} sao gỡ băng · có ${starBal()} sao</button></div>`:''}
-    <div class="stats"><div class="stat"><b>${st}${frozen()?' ❄':''}</b><span>${frozen()?'đóng băng':'ngày liền'}</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${G.done}</b><span>thẻ hôm nay</span></div></div>
-    <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${G.done}/${G.total} thẻ</span></div>
+    <div class="stats"><div class="stat"><b>${st}${frozen()?' ❄':''}</b><span>${frozen()?'đóng băng':'ngày liền'}</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${G.cards}</b><span>thẻ hôm nay</span></div></div>
+    <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${G.done}/${G.total} thẻ${G.extra?` · vượt ${G.extra}`:''}</span></div>
       ${tripBar(G.pct,[1,2,3,4].map(i=>({at:i*20,on:G.pct>=i*20})),0)}
-      <p class="muted" style="margin:0;font-size:.88rem;font-weight:700">${G.left?`Còn ${[G.due?G.due+' thẻ đến hạn ôn':'',G.nLeft?G.nLeft+' thẻ mới đề xuất':''].filter(Boolean).join(' và ')} nữa là tới chỗ anh`:G.done?'Xong hết thẻ hôm nay rồi! Muốn học thêm thì cứ bấm, anh thưởng sao nha':'Hôm nay không có thẻ nào đến hạn, em nghỉ ngơi nha'}</p></div>
+      <p class="muted" style="margin:0;font-size:.88rem;font-weight:700">${G.left?`Còn ${[G.due?G.due+' thẻ đến hạn ôn':'',G.nLeft?G.nLeft+' thẻ mới đề xuất':''].filter(Boolean).join(' và ')} nữa là tới chỗ anh`:G.extra?`Tới chỗ anh rồi, còn vượt mục tiêu ${G.extra} thẻ nữa! Giỏi quá trời~`:G.done?'Xong hết thẻ hôm nay rồi! Muốn học thêm thì cứ bấm, anh thưởng sao nha':'Hôm nay không có thẻ nào đến hạn, em nghỉ ngơi nha'}</p></div>
     <div class="card stack">
       <div class="row" style="justify-content:space-between"><h2>Ôn tập hôm nay</h2><span class="pill">${due} cần ôn · ${nl} mới</span></div>
       <button class="btn wide" id="start" ${due+nl?'':'disabled'}>${due+nl?'Bắt đầu ôn':'Hết thẻ rồi'}</button>
@@ -533,9 +533,14 @@ let lastPct=0;
 // mục tiêu hôm nay theo đường cong quên: thẻ đã ôn hôm nay + thẻ đang đến hạn + thẻ mới đề xuất (theo giới hạn nếu bật, không thì 1 lượt 20 thẻ)
 // Mục tiêu hôm nay = thẻ đã ôn hôm nay + thẻ đến hạn hôm nay chưa ôn + thẻ mới đề xuất còn lại.
 // Đếm theo thẻ, không theo lượt vuốt: thẻ học lại trong ngày đã tính là xong nên mục tiêu không tự tăng lên.
-function dayGoal(){const t=today(),done=new Set(revTodayIds()),nSug=S.newPerDay||BATCH;
-  const due=dueIds().filter(id=>!done.has(id)).length;const nLeft=Math.min(Math.max(0,nSug-t.nw),newIds(nSug).length);
-  const left=due+nLeft,total=done.size+left;return {done:done.size,left,total,due,nLeft,pct:total?Math.min(100,Math.round(done.size/total*100)):100}}
+function dayGoal(){const t=today(),done=new Set(revTodayIds()),nw=t.nw||0;
+  const dueRest=dueIds().filter(id=>!done.has(id)).length;
+  const revDone=Math.max(0,done.size-nw),R=revDone+dueRest;           // khối lượng ôn của hôm nay, không đổi trong ngày
+  // thẻ mới đề xuất: có giới hạn thì theo giới hạn; không giới hạn thì theo đường cong quên: ngày nhiều thẻ đến hạn thì bớt thẻ mới (20 → tối thiểu 5)
+  const nSug=S.newPerDay||Math.max(5,Math.min(BATCH,BATCH-Math.round(R/4)));
+  const nTarget=Math.min(nSug,nw+newIds(nSug).length);
+  const nLeft=Math.max(0,nTarget-nw),total=R+nTarget,prog=revDone+Math.min(nw,nTarget),extra=Math.max(0,nw-nTarget);
+  return {done:prog,cards:done.size,left:dueRest+nLeft,total,due:dueRest,nLeft,nSug,extra,pct:total?Math.min(100,Math.round(prog/total*100)):100}}
 function tripBar(pct,marks,from){const f=from==null?pct:from;
   return `<div class="track"><div class="lane"><i class="fill" style="transform:scaleX(${f/100})"></i></div><div class="marks">${marks.map(m=>`<span class="mk${m.on?' on':''}" style="left:${m.at}%">${SKIN()?SKIN().mk:'♥'}</span>`).join('')}</div><span class="rwrap" style="transform:translateX(${f}%)"><img class="runner" src="${IMG('r_na')}" alt=""></span><img class="goal" src="${IMG('r_nhan')}" alt="Anh Nhân ở đích"></div>`}
 function tripGo(root,pct){if(!root)return;requestAnimationFrame(()=>requestAnimationFrame(()=>{const f=root.querySelector('.fill'),w=root.querySelector('.rwrap');if(f)f.style.transform=`scaleX(${pct/100})`;if(w)w.style.transform=`translateX(${pct}%)`;const rn=root.querySelector('.runner');if(rn){rn.classList.remove('hop');void rn.offsetWidth;rn.classList.add('hop')}}))}
@@ -544,7 +549,8 @@ let sessionDeck=null,Q=[],qi=0,shown=false,sessStart=0,doneCount=0,okStreak=0,br
 function sessionStop(){if(sessStart){today().secs+=Math.round((Date.now()-sessStart)/1000);save();sessStart=0}}
 function vReview(){nav('home');
   const due=dueIds().filter(id=>!sessionDeck||S.cards[id].deck===sessionDeck);
-  const nw=newIds(Math.min(BATCH,sessionDeck?Math.max(newLeft(),5):newLeft()),sessionDeck);
+  const gN=(!S.newPerDay&&!sessionDeck)?dayGoal().nLeft:0;
+  const nw=newIds(Math.min(BATCH,sessionDeck?Math.max(newLeft(),5):gN>0?gN:newLeft()),sessionDeck);
   Q=due.concat(nw);if(QK===0)Q=Q.slice(0,8);qi=0;lastPct=0;doneCount=0;okStreak=0;breakShown=false;
   if(!Q.length&&QK===0){quickDone(0);return}
   if(!Q.length){sessionDeck=null;app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('07_lo_dau')}" alt=""><div class="bubble">Không còn thẻ nào để ôn lúc này. Em giỏi quá!</div></div><a class="btn wide" href="#home">Về trang chính</a></div>`;return}
@@ -1123,7 +1129,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261117170724';let needReload=false;
+const APP_V='20261117170931';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
