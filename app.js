@@ -234,14 +234,18 @@ function thaw(){const st=S.streak,k=dkey();st.count=(st.count||0)+1;st.last=k;st
 function payThaw(){if(!frozen())return;if(starBal()<THAW_COST)return toast('n05_doi',`Em chưa đủ ${THAW_COST} sao, ôn ${THAW_REV} thẻ đi nha~`,2400);
   S.buy=Object.assign({},S.buy,{['thaw-'+dkey()]:THAW_COST});thaw();save();sync();setTimeout(()=>route(),300)}
 function markStudy(){const k=dkey(),st=S.streak;if(st.last===k)return;
-  if(frozen()){if(today().rev>=THAW_REV){thaw();setTimeout(()=>{if(location.hash==='#home'||!location.hash)route()},800)}return}
+  if(frozen()){if(revTodayIds().length>=THAW_REV){thaw();setTimeout(()=>{if(location.hash==='#home'||!location.hash)route()},800)}return}
   const y=new Date();y.setDate(y.getDate()-1);st.count=(st.last===dkey(y))?st.count+1:1;st.last=k;st.best=Math.max(st.best,st.count);if(st.count%7===0)setTimeout(()=>{toast('06_om_nhau',`Chuỗi ${st.count} ngày liền! Ôm em một cái nè!`,2600);rain(20)},900)}
 function streakNow(){const st=S.streak;const y=new Date();y.setDate(y.getDate()-1);return (st.last===dkey()||st.last===dkey(y)||frozen())?st.count:0}
 function missedYesterday(){const st=S.streak;if(!st.last)return false;const y=new Date();y.setDate(y.getDate()-1);return st.last!==dkey()&&st.last!==dkey(y)}
 
 /* ---------- hàng đợi ôn ---------- */
 function unlockedDecks(){return DECKS.filter(unlockedForNa)}
-function dueIds(){const now=Date.now(),ok=new Set(unlockedDecks().map(d=>d.id));return Object.entries(S.cards).filter(([id,c])=>ok.has(c.deck)&&CARDS.has(id)&&new Date(c.due).getTime()<=now).sort((a,b)=>new Date(a[1].due)-new Date(b[1].due)).map(x=>x[0])}
+// Thẻ đến hạn: thẻ đang học/học lại (state 1, 3) theo đúng giờ; thẻ ôn (state 2) có hạn trong hôm nay thì ôn được từ đầu ngày, giống Anki.
+const endToday=()=>{const d=new Date();d.setHours(23,59,59,999);return d.getTime()};
+// Số thẻ khác nhau đã ôn hôm nay (một thẻ vuốt nhiều lần vẫn tính 1). Lấy từ ngày ôn cuối của từng thẻ nên đúng cả khi học trên nhiều máy.
+function revTodayIds(){const k=dkey();return Object.keys(S.cards).filter(id=>{const c=S.cards[id];return c.last_review&&dkey(new Date(c.last_review))===k})}
+function dueIds(){const now=Date.now(),eod=endToday(),ok=new Set(unlockedDecks().map(d=>d.id));return Object.entries(S.cards).filter(([id,c])=>ok.has(c.deck)&&CARDS.has(id)&&new Date(c.due).getTime()<=(c.state===2?eod:now)).sort((a,b)=>new Date(a[1].due)-new Date(b[1].due)).map(x=>x[0])}
 function newLeft(){return S.newPerDay?Math.max(0,S.newPerDay-today().nw):Infinity} // 0 = không giới hạn
 const BATCH=20; // một lượt học tối đa 20 thẻ mới, học xong bấm Học tiếp
 function newIds(n,deck){
@@ -347,7 +351,7 @@ function vHome(){nav('home');
   const due=dueIds().length,nl=Math.min(newLeft(),newIds(9999).length),st=streakNow();
   let img,msg;
   if(!LOCAL.hello){img='01_vui_bat_ngo';msg='Chào em Na! Từ nay mình học tiếng Nhật cùng nhau nha. Mỗi ngày một chút thôi là được.'}
-  else if(frozen()){const g=gapDays()-1,need=Math.max(0,THAW_REV-today().rev);img=pick(['n05_doi','03_doi_gian']);msg=`Em bỏ học ${g} ngày rồi, anh dỗi đó! Chuỗi ${S.streak.count} ngày đang bị đóng băng ❄. Ôn thêm ${need} thẻ hôm nay hoặc trả ${THAW_COST} sao thì anh mới hết dỗi.`}
+  else if(frozen()){const g=gapDays()-1,need=Math.max(0,THAW_REV-revTodayIds().length);img=pick(['n05_doi','03_doi_gian']);msg=`Em bỏ học ${g} ngày rồi, anh dỗi đó! Chuỗi ${S.streak.count} ngày đang bị đóng băng ❄. Ôn thêm ${need} thẻ hôm nay hoặc trả ${THAW_COST} sao thì anh mới hết dỗi.`}
   else if(missedYesterday()){img='n05_doi';msg='Lâu quá em không học nè… anh dỗi đó! Mình bắt đầu chuỗi mới với anh nha~'}
   else if(st&&st%7===0&&S.streak.last===dkey()){img='06_om_nhau';msg=`Chuỗi ${st} ngày rồi! Giỏi quá đi mất!`}
   else if(due>0){img='n06_nhac_gio';msg=`Còn ${due} thẻ đang chờ em ôn nè. Nhanh lắm, 5 phút thôi!`}
@@ -359,8 +363,8 @@ function vHome(){nav('home');
     ${letterHTML()}
     <div class="hero"><img src="${IMG(img)}" alt="Sticker anh Nhân"><div class="bubble">${esc(msg)}</div></div>
     ${quickCard()}
-    ${frozen()?`<div class="card frz"><div class="frzbar"><i style="transform:scaleX(${Math.min(1,today().rev/THAW_REV)})"></i></div><span class="muted" style="font-weight:800;font-size:.85rem">❄ Gỡ băng: ${Math.min(today().rev,THAW_REV)}/${THAW_REV} thẻ hôm nay</span><button class="btn ghost wide" id="thaw">Trả ${THAW_COST} sao gỡ băng · có ${starBal()} sao</button></div>`:''}
-    <div class="stats"><div class="stat"><b>${st}${frozen()?' ❄':''}</b><span>${frozen()?'đóng băng':'ngày liền'}</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${t.rev}</b><span>thẻ hôm nay</span></div></div>
+    ${frozen()?`<div class="card frz"><div class="frzbar"><i style="transform:scaleX(${Math.min(1,revTodayIds().length/THAW_REV)})"></i></div><span class="muted" style="font-weight:800;font-size:.85rem">❄ Gỡ băng: ${Math.min(revTodayIds().length,THAW_REV)}/${THAW_REV} thẻ hôm nay</span><button class="btn ghost wide" id="thaw">Trả ${THAW_COST} sao gỡ băng · có ${starBal()} sao</button></div>`:''}
+    <div class="stats"><div class="stat"><b>${st}${frozen()?' ❄':''}</b><span>${frozen()?'đóng băng':'ngày liền'}</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${G.done}</b><span>thẻ hôm nay</span></div></div>
     <div class="card stack goalcard"><div class="row" style="justify-content:space-between"><h3>Mục tiêu hôm nay</h3><span class="pill">${G.done}/${G.total} thẻ</span></div>
       ${tripBar(G.pct,[1,2,3,4].map(i=>({at:i*20,on:G.pct>=i*20})),0)}
       <p class="muted" style="margin:0;font-size:.88rem;font-weight:700">${G.left?`Còn ${[G.due?G.due+' thẻ đến hạn ôn':'',G.nLeft?G.nLeft+' thẻ mới đề xuất':''].filter(Boolean).join(' và ')} nữa là tới chỗ anh`:G.done?'Xong hết thẻ hôm nay rồi! Muốn học thêm thì cứ bấm, anh thưởng sao nha':'Hôm nay không có thẻ nào đến hạn, em nghỉ ngơi nha'}</p></div>
@@ -527,7 +531,11 @@ function closeModal(){$('#modalRoot').innerHTML=''}
 /* ---------- thanh tiến trình: Na chạy tới chỗ anh, mỗi 5 thẻ một trái tim ---------- */
 let lastPct=0;
 // mục tiêu hôm nay theo đường cong quên: thẻ đã ôn hôm nay + thẻ đang đến hạn + thẻ mới đề xuất (theo giới hạn nếu bật, không thì 1 lượt 20 thẻ)
-function dayGoal(){const t=today(),due=dueIds().length,nSug=S.newPerDay||BATCH;const nLeft=Math.min(Math.max(0,nSug-t.nw),newIds(nSug).length);const left=due+nLeft,total=t.rev+left;return {done:t.rev,left,total,due,nLeft,pct:total?Math.min(100,Math.round(t.rev/total*100)):100}}
+// Mục tiêu hôm nay = thẻ đã ôn hôm nay + thẻ đến hạn hôm nay chưa ôn + thẻ mới đề xuất còn lại.
+// Đếm theo thẻ, không theo lượt vuốt: thẻ học lại trong ngày đã tính là xong nên mục tiêu không tự tăng lên.
+function dayGoal(){const t=today(),done=new Set(revTodayIds()),nSug=S.newPerDay||BATCH;
+  const due=dueIds().filter(id=>!done.has(id)).length;const nLeft=Math.min(Math.max(0,nSug-t.nw),newIds(nSug).length);
+  const left=due+nLeft,total=done.size+left;return {done:done.size,left,total,due,nLeft,pct:total?Math.min(100,Math.round(done.size/total*100)):100}}
 function tripBar(pct,marks,from){const f=from==null?pct:from;
   return `<div class="track"><div class="lane"><i class="fill" style="transform:scaleX(${f/100})"></i></div><div class="marks">${marks.map(m=>`<span class="mk${m.on?' on':''}" style="left:${m.at}%">${SKIN()?SKIN().mk:'♥'}</span>`).join('')}</div><span class="rwrap" style="transform:translateX(${f}%)"><img class="runner" src="${IMG('r_na')}" alt=""></span><img class="goal" src="${IMG('r_nhan')}" alt="Anh Nhân ở đích"></div>`}
 function tripGo(root,pct){if(!root)return;requestAnimationFrame(()=>requestAnimationFrame(()=>{const f=root.querySelector('.fill'),w=root.querySelector('.rwrap');if(f)f.style.transform=`scaleX(${pct/100})`;if(w)w.style.transform=`translateX(${pct}%)`;const rn=root.querySelector('.runner');if(rn){rn.classList.remove('hop');void rn.offsetWidth;rn.classList.add('hop')}}))}
@@ -623,7 +631,7 @@ function grade(id,c,r,rec){if(gradeLock)return;gradeLock=true;const isNew=!S.car
   qi++;doneCount++;
   if(fl&&!fl.style.transform&&!RM){fl.style.transition='transform .2s ease-in,opacity .2s';fl.style.transform=r===1?'translateX(-120%) rotate(-12deg)':'translateX(120%) rotate(12deg)';fl.style.opacity='0';setTimeout(renderCard,r===1?260:190)}else renderCard()}
 function finish(){sessionStop();sessionDeck=null;const t=today();track('finish');sync();if(QK===0){checkStickers();return quickDone(0)}
-  app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('02_ban_tay_tim')}" alt=""><div class="bubble">Xong rồi! Hôm nay em ôn ${t.rev} thẻ, đúng ${t.ok}. Anh thương em nhiều lắm!</div></div>
+  app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('02_ban_tay_tim')}" alt=""><div class="bubble">Xong rồi! Hôm nay em ôn ${revTodayIds().length} thẻ (${t.rev} lượt vuốt, ${t.rev?Math.round(t.ok/t.rev*100):0}% nhớ). Anh thương em nhiều lắm!</div></div>
   <div class="stats"><div class="stat"><b>${doneCount}</b><span>lượt vừa ôn</span></div><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${streakNow()}</b><span>ngày liền</span></div></div>
   ${dueIds().length||(newLeft()>0&&newIds(1).length)?'<button class="btn wide" id="more">Học tiếp</button>':''}<a class="btn ${dueIds().length||newIds(1).length?'ghost ':''}wide" href="#games">Chơi game thư giãn</a><a class="btn ghost wide" href="#home">Về trang chính</a></div>`;
   $('#more')&&($('#more').onclick=()=>vReview());enterFx();rain(22);checkStickers();setTimeout(showReveal,900)}
@@ -1115,7 +1123,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261116200203';let needReload=false;
+const APP_V='20261117165953';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
