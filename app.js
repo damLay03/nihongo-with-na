@@ -246,7 +246,7 @@ const endToday=()=>{const d=new Date();d.setHours(23,59,59,999);return d.getTime
 // Số thẻ khác nhau đã ôn hôm nay (một thẻ vuốt nhiều lần vẫn tính 1). Lấy từ ngày ôn cuối của từng thẻ nên đúng cả khi học trên nhiều máy.
 function revTodayIds(){const k=dkey();return Object.keys(S.cards).filter(id=>{const c=S.cards[id];return c.last_review&&dkey(new Date(c.last_review))===k})}
 function dueIds(){const now=Date.now(),eod=endToday(),ok=new Set(unlockedDecks().map(d=>d.id));return Object.entries(S.cards).filter(([id,c])=>ok.has(c.deck)&&CARDS.has(id)&&new Date(c.due).getTime()<=(c.state===2?eod:now)).sort((a,b)=>new Date(a[1].due)-new Date(b[1].due)).map(x=>x[0])}
-function newLeft(){return S.newPerDay?Math.max(0,S.newPerDay-today().nw):Infinity} // 0 = không giới hạn
+function newLeft(){return S.newPerDay?Math.max(0,S.newPerDay-today().nw):Infinity} // 0 = đề xuất thông minh
 const BATCH=20; // một lượt học tối đa 20 thẻ mới, học xong bấm Học tiếp
 function newIds(n,deck){
   // trong một bài: từ vựng/chữ Kanji trước, rồi ngữ pháp/từ ghép; giữa các bài: xen kẽ
@@ -355,7 +355,7 @@ function vHome(){nav('home');
   else if(missedYesterday()){img='n05_doi';msg='Lâu quá em không học nè… anh dỗi đó! Mình bắt đầu chuỗi mới với anh nha~'}
   else if(st&&st%7===0&&S.streak.last===dkey()){img='06_om_nhau';msg=`Chuỗi ${st} ngày rồi! Giỏi quá đi mất!`}
   else if(due>0){img='n06_nhac_gio';msg=`Còn ${due} thẻ đang chờ em ôn nè. Nhanh lắm, 5 phút thôi!`}
-  else if(nl>0){img='g1_cuoi_vui';msg=S.newPerDay?`Hôm nay mình học ${nl} thẻ mới nha em!`:`Có ${nl} thẻ mới đang chờ. Mỗi lượt 20 thẻ, học bao nhiêu tùy em nha!`}
+  else if(nl>0){img='g1_cuoi_vui';msg=S.newPerDay?`Hôm nay mình học ${nl} thẻ mới nha em!`:(()=>{const g=dayGoal();return g.nLeft?`Hôm nay anh đề xuất ${g.nLeft} thẻ mới cho em nè. Học xong muốn học thêm cũng được nha!`:`Xong thẻ mới đề xuất hôm nay rồi! Còn ${nl} thẻ mới nữa, học thêm thì anh thưởng sao~`})()}
   else{img='07_lo_dau';msg='Xong hết bài hôm nay rồi! Em đi chơi game hay nghỉ ngơi đi~';if(today().rev>0)setTimeout(()=>track('alldone'),0)}
   const t=today(),G=dayGoal();
   app.innerHTML=`<div class="stack">
@@ -789,7 +789,7 @@ function vMe(){nav('me');const tot=Object.keys(S.cards).length,learnedN=Object.v
   app.innerHTML=`<div class="stack"><div class="row"><img src="${IMG('r_na')}" alt="" width="72" height="72" style="border-radius:50%"><div><h1>Lê Na</h1><div class="muted" style="font-weight:700">Học cùng anh Nhân</div>${syncBadge()}</div></div>
   <div class="stats"><div class="stat"><b>${S.stars}</b><span>ngôi sao</span></div><div class="stat"><b>${S.streak.best}</b><span>chuỗi dài nhất</span></div><div class="stat"><b>${learnedN}</b><span>thẻ đã thuộc</span></div></div>
   <div class="card stack"><h3>Cài đặt</h3>
-    <div class="switch"><span><b>Giới hạn thẻ mới mỗi ngày</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Mỗi ngày học tối đa '+S.newPerDay+' thẻ mới':'Đang tắt: học bao nhiêu tùy em'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Giới hạn thẻ mới mỗi ngày"></button></div>
+    <div class="switch"><span><b>Đặt cố định số thẻ mới</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Cố định '+S.newPerDay+' thẻ mới mỗi ngày':'Đang dùng đề xuất thông minh: hôm nay '+dayGoal().nSug+' thẻ mới, tự giảm khi có nhiều thẻ cần ôn'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Đặt cố định số thẻ mới mỗi ngày"></button></div>
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}
     <button class="btn ghost" id="vt">Nghe thử giọng đọc</button>
     <p class="muted" style="margin:0;font-size:.85rem">${jaVoice?'Đang dùng giọng: '+esc(jaVoice.name):'Chưa thấy giọng tiếng Nhật trên máy. Trên iPhone vào Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói để tải giọng Nhật.'}</p></div>
@@ -1103,7 +1103,7 @@ function tSettings(){nav('t-set');const tcode=ls.get('nwn-tcode','');
   app.innerHTML=`<div class="stack">${tTop('Cài đặt','Máy của thầy Nhân')}
   <div class="card stack"><h3>Mã của Na</h3><p style="margin:0"><b class="jp" style="user-select:all">${esc(CODE)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Đưa mã này cho Na. Mã này chỉ vào được phần học.</p></div>
   <div class="card stack"><h3>Mã giáo viên của anh</h3><p style="margin:0"><b class="jp" style="user-select:all;overflow-wrap:anywhere">${esc(tcode)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Chỉ anh giữ. Ai có mã này mới vào được bảng theo dõi và mở bài.</p></div>
-  <div class="card stack"><h3>Số thẻ mới mỗi ngày của Na</h3><div class="switch"><span><b>Giới hạn</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Tối đa '+S.newPerDay+' thẻ mới mỗi ngày':'Đang tắt: Na học bao nhiêu tùy ý'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Giới hạn thẻ mới mỗi ngày"></button></div>
+  <div class="card stack"><h3>Số thẻ mới mỗi ngày của Na</h3><div class="switch"><span><b>Đặt cố định</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Cố định '+S.newPerDay+' thẻ mới mỗi ngày':'Đang dùng đề xuất thông minh: hôm nay '+dayGoal().nSug+' thẻ mới (20, giảm dần tới 5 khi nhiều thẻ cần ôn)'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Đặt cố định số thẻ mới mỗi ngày"></button></div>
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}</div>
   <div class="card stack"><h3>Báo thư ngay lên máy Na</h3><p class="muted" style="margin:0;font-size:.85rem">${ls.get('nwn-ghtok','')?'Đã bật. Gửi thư xong khoảng 1 phút là máy Na báo.':'Dán token GitHub (chỉ quyền Actions của repo app) để thư báo ngay. Token chỉ lưu trên máy này.'}</p>
     <label class="field" for="ghtok">Token GitHub<input id="ghtok" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" value="${ls.get('nwn-ghtok','')?'••••••••':''}"></label>
@@ -1129,7 +1129,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261117170931';let needReload=false;
+const APP_V='20261117171609';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
