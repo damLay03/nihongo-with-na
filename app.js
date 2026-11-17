@@ -86,7 +86,7 @@ function cardMod(c){return c.mod||Date.parse(c.last_review||0)||0}
 function merge(a,b){
   const o=structuredClone(a);
   for(const [id,c] of Object.entries(b.cards||{})){const m=o.cards[id];if(!m||cardMod(c)>cardMod(m))o.cards[id]=c}
-  for(const [d,l] of Object.entries(b.log||{})){const m=o.log[d]||(o.log[d]={rev:0,nw:0,secs:0,ok:0});for(const k of ['rev','nw','secs','ok'])m[k]=Math.max(m[k]||0,l[k]||0)}
+  for(const [d,l] of Object.entries(b.log||{})){const m=o.log[d]||(o.log[d]={rev:0,nw:0,secs:0,ok:0});for(const k of ['rev','nw','secs','ok','cards'])if(l[k]!=null||m[k]!=null)m[k]=Math.max(m[k]||0,l[k]||0)}
   o.stars=Math.max(o.stars||0,b.stars||0);
   const sa=o.streak||{},sb=b.streak||{};
   if((sb.last||'')>(sa.last||'')||((sb.last||'')===(sa.last||'')&&(sb.count||0)>(sa.count||0)))o.streak={last:sb.last,count:sb.count,best:sa.best||0};
@@ -620,7 +620,7 @@ let gradeLock=false;
 function grade(id,c,r,rec){if(gradeLock)return;gradeLock=true;const isNew=!S.cards[id];const t=today();
   let nc;if(rec){nc=rec[r].card}else{nc={due:new Date(Date.now()+(r===1?60000:r*86400000)),state:r===1?1:2,lapses:0,reps:1}}
   S.cards[id]=Object.assign({},nc,{deck:c.deck,due:nc.due.toISOString(),last_review:nc.last_review?new Date(nc.last_review).toISOString():new Date().toISOString(),lapses:nc.lapses||0,mod:Date.now()});
-  if(isNew)t.nw++;t.rev++;if(r>1)t.ok++;S.stars+=r>1?1:0;markStudy();save();
+  if(isNew)t.nw++;t.rev++;if(r>1)t.ok++;t.cards=revTodayIds().length;S.stars+=r>1?1:0;markStudy();save();
   if(LOCAL.goalDay!==dkey()&&dayGoal().left===0){LOCAL.goalDay=dkey();saveLocal();setTimeout(()=>{toast('06_om_nhau','Xong hết thẻ đề xuất hôm nay rồi! Ôm em một cái nè~',2600);rain(22)},500)}
   const gotS=checkStickers();if(gotS.length)setTimeout(()=>stkPing(gotS[0]),300);
   if(r===1){okStreak=0;track('forget');toast(Math.random()<.7?'n01_nhay':'05_vo_ve_an_ui',Math.random()<.7?pick(LINES.tease):pick(LINES.comfort))}
@@ -1049,7 +1049,7 @@ function ago(ms){if(!ms)return 'chưa học lần nào';const m=(Date.now()-ms)/
 function weekStats(off){const now=new Date(),mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-((now.getDay()+6)%7)-7*off);
   const ks=[...Array(7)].map((_,i)=>dkey(new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i)));
   const L=ks.map(k=>S.log[k]||{}),sum=f=>L.reduce((a,l)=>a+(l[f]||0),0);
-  return {ks,from:ks[0],to:ks[6],days:ks.filter(k=>(S.log[k]&&S.log[k].rev>0)||S.games.some(g=>g.d===k)).length,rev:sum('rev'),ok:sum('ok'),nw:sum('nw'),min:Math.round(sum('secs')/60),games:S.games.filter(g=>ks.includes(g.d)).length}}
+  return {ks,from:ks[0],to:ks[6],cards:sum('cards'),days:ks.filter(k=>(S.log[k]&&S.log[k].rev>0)||S.games.some(g=>g.d===k)).length,rev:sum('rev'),ok:sum('ok'),nw:sum('nw'),min:Math.round(sum('secs')/60),games:S.games.filter(g=>ks.includes(g.d)).length}}
 function weekReport(){const a=weekStats(0),b=weekStats(1),fmt=k=>k.slice(8)+'/'+k.slice(5,7);
   const dlt=(x,y)=>x===y?'<span class="muted">=</span>':x>y?`<span style="color:var(--good)">▲${x-y}</span>`:`<span style="color:var(--again)">▼${y-x}</span>`;
   const forgot=Object.entries(S.cards).filter(([id,c])=>c.lapses>0&&CARDS.has(id)&&c.last_review&&dkey(new Date(c.last_review))>=a.from).sort((x,y)=>y[1].lapses-x[1].lapses).slice(0,5);
@@ -1058,7 +1058,7 @@ function weekReport(){const a=weekStats(0),b=weekStats(1),fmt=k=>k.slice(8)+'/'+
   const row=(l,x,y,suf='')=>`<div class="switch"><span>${l}</span><span><b>${x}${suf}</b> ${dlt(x,y)}</span></div>`;
   return `<div class="card stack"><div class="row" style="justify-content:space-between"><h3>Báo cáo tuần</h3><span class="pill">${fmt(a.from)} – ${fmt(a.to)}</span></div>
    <span class="muted" style="font-size:.82rem;font-weight:700">So với tuần trước (${fmt(b.from)} – ${fmt(b.to)})</span>
-   ${row('Số ngày học',a.days,b.days,'/7')}${row('Lượt ôn',a.rev,b.rev)}${row('Thẻ mới',a.nw,b.nw)}${row('Phút học',a.min,b.min)}${row('Ván game',a.games,b.games)}
+   ${row('Số ngày học',a.days,b.days,'/7')}${a.cards||b.cards?row('Thẻ đã ôn',a.cards,b.cards):''}${row('Lượt vuốt',a.rev,b.rev)}${row('Thẻ mới',a.nw,b.nw)}${row('Phút học',a.min,b.min)}${row('Ván game',a.games,b.games)}
    <div class="switch"><span>Trả lời đúng</span><b>${a.rev?Math.round(a.ok/a.rev*100):0}%</b></div>
    ${forgot.length?`<div><b style="font-size:.9rem">Từ Na quên trong tuần</b><div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${forgot.map(([id])=>`<span class="pill jp">${esc(cardLabel(id))}</span>`).join('')}</div></div>`:''}
    <div class="paper" style="text-align:left;padding:12px"><span class="muted" style="font-size:.8rem;font-weight:800">Gợi ý thư cho Na</span><p style="margin:4px 0 0" id="wsg">${esc(sugg)}</p></div>
@@ -1123,7 +1123,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261117165953';let needReload=false;
+const APP_V='20261117170724';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
