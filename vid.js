@@ -47,7 +47,7 @@ function stepPT(dt){PT=PT.filter(p=>{p.age+=dt;if(p.age>p.life)return false;p.vy
 function drawPT(){for(const p of PT){const k=p.age/p.life,a=p.fade===false?1:1-k*k*k;g.save();g.globalAlpha=a*p.a;g.translate(p.x,p.y);g.rotate(p.rot);if(p.draw)p.draw(p,k);else{circ(0,0,p.r);fill(p.c)}g.restore()}}
 /* ---------- âm thanh ---------- */
 let A=null,master=null,sfxG=null,musG=null,nb=null,hs=null,crk=null;
-function aud(){if(A)return A.state==='running'?A:null;if(typeof acInit!=='function')return null;A=acInit();if(!A)return null;
+function aud(){if(A)return A.state==='running'?A:null;if(typeof window.acInit!=='function')return null;A=window.acInit();if(!A)return null;
   const comp=A.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=3;comp.connect(A.destination);
   master=A.createGain();master.gain.value=0;master.connect(comp);sfxG=A.createGain();sfxG.gain.value=1;sfxG.connect(master);musG=A.createGain();musG.gain.value=.55;musG.connect(master);
   nb=A.createBuffer(1,A.sampleRate*2,A.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;vol();return A.state==='running'?A:null}
@@ -481,5 +481,6 @@ window.VID={scenes:SC.map(s=>s.id),
   duck(on){duckV=on?.12:1;vol()},
   show(id){const i=SC.findIndex(s=>s.id===id);if(i>=0)show(i)},
   seek(t){T=t;prevT=t},
+  dbg(){return {ctx:A?A.state:'none',master:master?master.gain.value:null,running,muted,duck:duckV}},
   get cur(){return SC[cur].id}};
 })();

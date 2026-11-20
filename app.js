@@ -989,6 +989,7 @@ function acInit(){if(AC)return AC;const C=window.AudioContext||window.webkitAudi
   const dl=AC.createDelay(1);dl.delayTime.value=.33;const fb=AC.createGain();fb.gain.value=.28;const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2200;
   mGain=AC.createGain();mGain.connect(comp);mGain.connect(dl);dl.connect(lp);lp.connect(fb);fb.connect(dl);lp.connect(comp);
   fGain=AC.createGain();fGain.connect(comp);applyVol();return AC}
+window.acInit=acInit; // vid.js dùng chung AudioContext của app (app.js nằm trong hàm bọc nên phải đưa ra ngoài)
 function applyVol(){if(!AC)return;const t=AC.currentTime;mGain.gain.setTargetAtTime(SND.music&&!document.documentElement.classList.contains('vidon')?SND.mv*.5*duck:0,t,.15);fGain.gain.setTargetAtTime(SND.fx?SND.fv:0,t,.02)}
 function tone(dest,f,t,dur,vol,type='sine'){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(dest);o.start(t);o.stop(t+dur+.05)}
@@ -1022,7 +1023,12 @@ function sfx(k){if(!SND.fx)return;if(!acInit()||AC.state!=='running')return;cons
 function sndSave(){LOCAL.snd=Object.assign({},SND);saveLocal();applyVol();if(SND.music)musicOn();else musicOff()}
 // iPhone chỉ cho phát âm thanh sau lần chạm đầu tiên
 function unlockAudio(){if(!acInit())return;if(AC.state!=='running')AC.resume().then(musicOn).catch(()=>{});else musicOn()}
-['pointerdown','keydown'].forEach(ev=>addEventListener(ev,unlockAudio,{passive:true}));
+// iPhone chỉ cho mở tiếng ở cú chạm hoàn chỉnh (touchend/click), không nhận pointerdown
+['pointerdown','pointerup','touchend','click','keydown'].forEach(ev=>addEventListener(ev,unlockAudio,{passive:true}));
+// iPhone gạt im lặng thì Web Audio bị tắt tiếng: xin phiên âm thanh kiểu phát nhạc + giữ một thẻ <audio> im lặng chạy nền
+function iosAudio(){try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
+  if(window._sil)return;try{const a=new Audio('data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==');a.loop=true;a.setAttribute('playsinline','');a.volume=.01;a.play().then(()=>{window._sil=a}).catch(()=>{})}catch(e){}}
+['touchend','click'].forEach(ev=>addEventListener(ev,iosAudio,{passive:true}));
 addEventListener('visibilitychange',()=>{if(document.hidden){musicOff();AC&&AC.suspend&&AC.suspend().catch(()=>{})}else if(AC){AC.resume().then(musicOn).catch(()=>{})}});
 function duckFor(u){duck=.25;applyVol();window.VID&&VID.duck(1);const up=()=>{duck=1;applyVol();window.VID&&VID.duck(0)};u.onend=up;u.onerror=up;setTimeout(up,6000)}
 function soundCard(){const el=$('#sound');if(!el)return;
@@ -1181,7 +1187,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261120130056';let needReload=false;
+const APP_V='20261120130814';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
