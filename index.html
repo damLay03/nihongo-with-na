@@ -405,6 +405,21 @@ body.flashred{box-shadow:inset 0 0 0 9999px rgba(239,111,122,.18)}
 .stpick button{border-radius:14px;border:2px solid var(--line);background:var(--surface);padding:4px;aspect-ratio:1}
 .stpick button[aria-pressed="true"]{border-color:var(--pink);background:var(--surface2)}
 .stpick img{width:100%;height:100%;object-fit:contain}
+.vidp{position:fixed;top:0;left:50%;transform:translateX(-50%);width:min(100%,520px);height:var(--vidh,33vh);z-index:30;padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+.vbox{position:absolute;inset:env(safe-area-inset-top,0px) 0 16px 0;overflow:hidden;border-radius:0 0 22px 22px;border-bottom:3px solid var(--line);touch-action:pan-y}
+.vbox canvas{width:100%;height:100%;display:block}
+.vlab{position:absolute;left:10px;top:8px;background:rgba(255,255,255,.82);border-radius:999px;padding:3px 12px;font-size:.78rem;font-weight:800;color:#5B3B3B;display:flex;gap:6px;align-items:baseline;pointer-events:none}
+.vlab b{font-family:var(--f-jp);font-size:.9rem}
+.vbtn,.vclose{position:absolute;border:0;background:rgba(255,255,255,.82);color:#5B3B3B;border-radius:999px;min-width:36px;height:36px;font-size:1rem;font-weight:900;display:grid;place-items:center}
+.vpin{right:52px;top:6px}.vclose{right:10px;top:calc(6px + env(safe-area-inset-top,0px))}
+.vprev{left:6px;bottom:6px}.vnext{right:6px;bottom:6px}
+.vgrip{position:absolute;left:0;right:0;bottom:0;height:22px;display:grid;place-items:center;cursor:ns-resize;touch-action:none}
+.vgrip i{width:54px;height:6px;border-radius:3px;background:var(--line)}
+:root.vidon[data-view="review"] .app{padding-top:calc(var(--vidh,33vh) + 8px)}
+:root.vidon .rv{min-height:calc(100vh - 150px - var(--vidh,33vh));gap:8px}
+:root.vidon .flash{min-height:150px;padding:14px}
+:root.vidon .flash .big{font-size:3.4rem}:root.vidon .flash .mid{font-size:1.7rem}
+:root.vidon .tripmsg:empty{display:none}
 </style>
 </head>
 <body>
@@ -412,7 +427,9 @@ body.flashred{box-shadow:inset 0 0 0 9999px rgba(239,111,122,.18)}
 <div class="app" id="app"></div>
 <nav class="nav" aria-label="Chuyển màn hình"><div class="nav-in" id="nav"></div></nav>
 <div class="toast" id="toast" role="status" aria-live="polite"><img alt="" id="toastImg"><p id="toastTxt"></p></div>
+<div id="vidp" class="vidp" hidden><div class="vbox" id="vbox"></div><button class="vclose" id="vclose" aria-label="Tắt video hôm nay">✕</button><div class="vgrip" id="vgrip" role="separator" aria-label="Kéo để đổi cỡ video"><i></i></div></div>
 <div id="modalRoot"></div>
+<script src="vid.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

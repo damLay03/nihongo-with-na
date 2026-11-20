@@ -99,7 +99,7 @@ function merge(a,b){
   delete o.stk;o.own=Object.assign({},b.own||{},o.own||{});for(const [k,v] of Object.entries(b.own||{}))if(v<o.own[k])o.own[k]=v;
   o.buy=Object.assign({},b.buy||{},o.buy||{});o.ev=Object.assign({},o.ev||{});for(const [k,v] of Object.entries(b.ev||{}))o.ev[k]=Math.max(o.ev[k]||0,v||0);
   o.push=Object.assign({},o.push||{});for(const [k,v] of Object.entries(b.push||{}))if(!o.push[k]||(v.at||0)>(o.push[k].at||0))o.push[k]=v;
-  if((b.setAt||0)>(o.setAt||0)){o.unlocked=b.unlocked;o.newPerDay=b.newPerDay;o.pin=b.pin;o.setAt=b.setAt}
+  if((b.setAt||0)>(o.setAt||0)){o.unlocked=b.unlocked;o.newPerDay=b.newPerDay;o.vid=b.vid;o.pin=b.pin;o.setAt=b.setAt}
   return o;
 }
 function wipeProgress(x,R){const o=Object.assign({},x,{cards:{},log:{},stars:0,streak:{last:'',count:0,best:0},games:[],own:{},ev:{},buy:{},wipedAt:R});delete o.stk;return o}
@@ -264,7 +264,7 @@ const TNAVS=[['t-home','Tổng quan','chart'],['t-msg','Lời nhắn','mail'],['
 function nav(active){if(isT()){active={lessons:'t-lessons',home:'t-home',me:'t-set'}[active]||active;$('#nav').innerHTML=TNAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=false;return}
   $('#nav').innerHTML=NAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=!CODE}
 function route(soft){routeInner(soft);if(!soft)enterFx()}
-function routeInner(soft){const h=(location.hash||'#home').slice(1);document.documentElement.dataset.view=h;applySkin();if(!['review','game-listen','game-order','quick'].includes(h))QK=null;
+function routeInner(soft){const h=(location.hash||'#home').slice(1);document.documentElement.dataset.view=h;applySkin();vidSync(h);if(!['review','game-listen','game-order','quick'].includes(h))QK=null;
   if(!CODE)return vWelcome();
   if(!soft){sessionStop();closeModal()}
   const y=soft?scrollY:0;
@@ -557,7 +557,20 @@ function tripGo(root,pct){if(!root)return;requestAnimationFrame(()=>requestAnima
 /* ---------- phiên ôn ---------- */
 let sessionDeck=null,Q=[],qi=0,shown=false,sessStart=0,doneCount=0,okStreak=0,breakShown=false;
 function sessionStop(){if(sessStart){today().secs+=Math.round((Date.now()-sessStart)/1000);save();sessStart=0}}
-function vReview(){nav('home');
+/* video chia đôi màn hình khi ôn thẻ (vid.js). Anh bật/tắt chung ở máy giáo viên (S.vid), Na tắt tạm trong hôm nay (chỉ lưu trên máy Na). */
+const vidAllowed=()=>!isT()&&S.vid!==0&&!!window.VID;
+const vidOn=()=>vidAllowed()&&LOCAL.vidOff!==dkey();
+function vidH(){return Math.max(18,Math.min(62,+LOCAL.vidH||33))}
+function vidSync(h){h=h||(location.hash||'#home').slice(1);const r=document.documentElement,on=h==='review'&&vidOn(),p=$('#vidp');
+  r.classList.toggle('vidon',on);r.style.setProperty('--vidh',vidH()+'vh');if(!p)return;p.hidden=!on;if(on)VID.start($('#vbox'));else if(window.VID)VID.stop()}
+function vidInit(){const p=$('#vidp');if(!p||p._ok)return;p._ok=1;
+  $('#vclose').onclick=()=>{LOCAL.vidOff=dkey();saveLocal();vidSync();if($('#fl'))renderTop();toast('07_lo_dau','Tắt video tới hết hôm nay nha. Muốn xem lại thì bấm ▶ ở trên',2400)};
+  const gr=$('#vgrip');let y0=0,h0=0,drag=false;
+  gr.addEventListener('pointerdown',e=>{drag=true;y0=e.clientY;h0=vidH();gr.setPointerCapture(e.pointerId);e.preventDefault()});
+  gr.addEventListener('pointermove',e=>{if(!drag)return;LOCAL.vidH=Math.max(18,Math.min(62,h0+(e.clientY-y0)/innerHeight*100));document.documentElement.style.setProperty('--vidh',LOCAL.vidH+'vh')});
+  const end=()=>{if(!drag)return;drag=false;LOCAL.vidH=Math.round(vidH()*10)/10;saveLocal()};gr.addEventListener('pointerup',end);gr.addEventListener('pointercancel',end)}
+function renderTop(){const b=$('#vidback');if(b)b.hidden=!(vidAllowed()&&LOCAL.vidOff===dkey())}
+function vReview(){nav('home');vidInit();
   const due=dueIds().filter(id=>!sessionDeck||S.cards[id].deck===sessionDeck);
   const gN=(!S.newPerDay&&!sessionDeck)?dayGoal().nLeft:0;
   const nw=newIds(Math.min(BATCH,sessionDeck?Math.max(newLeft(),5):gN>0?gN:newLeft()),sessionDeck);
@@ -574,10 +587,10 @@ function renderCard(){gradeLock=false;
   const marks=[];for(let k=5;k<Q.length;k+=5)marks.push({at:k/Q.length*100,on:qi>=k});
   const cp=qi>0&&qi%5===0;
   const msg=left<=3?`Còn ${left} thẻ nữa thôi, sắp tới chỗ anh rồi!`:cp?`Được ${qi} thẻ rồi! Giỏi quá ♥`:'';
-  app.innerHTML=`<div class="rv"><div class="trip"><button class="back" id="quit" aria-label="Dừng ôn">✕</button><div style="flex:1;min-width:0" aria-label="Đã ôn ${qi} trên ${Q.length} thẻ">${tripBar(pct,marks,lastPct)}</div><span class="pill cnt">${left}</span></div>
+  app.innerHTML=`<div class="rv"><div class="trip"><button class="back" id="quit" aria-label="Dừng ôn">✕</button><button class="back" id="vidback" aria-label="Bật lại video" ${vidAllowed()&&LOCAL.vidOff===dkey()?'':'hidden'}>▶</button><div style="flex:1;min-width:0" aria-label="Đã ôn ${qi} trên ${Q.length} thẻ">${tripBar(pct,marks,lastPct)}</div><span class="pill cnt">${left}</span></div>
     <div class="tripmsg">${okStreak>=3?`<span class="combo" aria-label="Đúng liền ${okStreak} thẻ">🔥 Đúng liền ${okStreak}</span>`:''}${msg?`<span class="tm">${esc(msg)}</span>`:''}</div>
     <div class="card flash in" id="fl">${front(c,isNew)}<span class="swl">Quên</span><span class="swr">Được</span></div><div id="act" class="swguide"><span class="sg l">← Quên</span><span class="sg m">Chạm thẻ để lật</span><span class="sg r">Được →</span></div></div>`;
-  $('#quit').onclick=()=>{sessionDeck=null;go('home')};
+  $('#quit').onclick=()=>{sessionDeck=null;go('home')};$('#vidback').onclick=()=>{delete LOCAL.vidOff;saveLocal();vidSync();renderTop()};
   tripGo($('.trip'),pct);lastPct=pct;
   if(cp&&!RM){const m=[...document.querySelectorAll('.trip .mk.on')].pop();if(m){m.classList.add('pop');setTimeout(()=>{const [x,y]=mid(m);burst(x,y,7)},350)}}
   bindSwipe($('#fl'));
@@ -1011,7 +1024,7 @@ function sndSave(){LOCAL.snd=Object.assign({},SND);saveLocal();applyVol();if(SND
 function unlockAudio(){if(!acInit())return;if(AC.state!=='running')AC.resume().then(musicOn).catch(()=>{});else musicOn()}
 ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,unlockAudio,{passive:true}));
 addEventListener('visibilitychange',()=>{if(document.hidden){musicOff();AC&&AC.suspend&&AC.suspend().catch(()=>{})}else if(AC){AC.resume().then(musicOn).catch(()=>{})}});
-function duckFor(u){duck=.25;applyVol();const up=()=>{duck=1;applyVol()};u.onend=up;u.onerror=up;setTimeout(up,6000)}
+function duckFor(u){duck=.25;applyVol();window.VID&&VID.duck(1);const up=()=>{duck=1;applyVol();window.VID&&VID.duck(0)};u.onend=up;u.onerror=up;setTimeout(up,6000)}
 function soundCard(){const el=$('#sound');if(!el)return;
   el.innerHTML=`<h3>Âm thanh</h3>
    <div class="switch"><span><b>Nhạc nền</b><br><span class="muted" style="font-size:.85rem">Nhạc hộp nhạc nhẹ nhàng khi học</span></span><button class="tg" role="switch" id="smu" aria-checked="${SND.music}" aria-label="Nhạc nền"></button></div>
@@ -1142,11 +1155,13 @@ function tSettings(){nav('t-set');const tcode=ls.get('nwn-tcode','');
   <div class="card stack"><h3>Mã giáo viên của anh</h3><p style="margin:0"><b class="jp" style="user-select:all;overflow-wrap:anywhere">${esc(tcode)}</b></p><p class="muted" style="margin:0;font-size:.85rem">Chỉ anh giữ. Ai có mã này mới vào được bảng theo dõi và mở bài.</p></div>
   <div class="card stack"><h3>Số thẻ mới mỗi ngày của Na</h3><div class="switch"><span><b>Đặt cố định</b><br><span class="muted" style="font-size:.85rem">${S.newPerDay?'Cố định '+S.newPerDay+' thẻ mới mỗi ngày':'Đang dùng đề xuất thông minh: hôm nay '+dayGoal().nSug+' thẻ mới. Trần hiện tại '+newCap().cap+' ('+newCap().why+'), trừ bớt khi nhiều thẻ cần ôn, thấp nhất 5'}</span></span><button class="tg" role="switch" id="lim" aria-checked="${!!S.newPerDay}" aria-label="Đặt cố định số thẻ mới mỗi ngày"></button></div>
     ${S.newPerDay?`<label class="field" for="npd">Số thẻ mới mỗi ngày<input id="npd" type="number" min="1" max="500" value="${S.newPerDay}"></label>`:''}</div>
+  <div class="card stack"><h3>Video khi Na ôn thẻ</h3><div class="switch"><span><b>Chia đôi màn hình</b><br><span class="muted" style="font-size:.85rem">${S.vid===0?'Đang tắt':'Đang bật: phía trên chạy hoạt cảnh (cắt móng, nấu ramen, slime...), Na kéo vạch để đổi cỡ, tắt tạm được trong ngày'}</span></span><button class="tg" role="switch" id="vidt" aria-checked="${S.vid!==0}" aria-label="Video khi Na ôn thẻ"></button></div></div>
   <div class="card stack"><h3>Báo thư ngay lên máy Na</h3><p class="muted" style="margin:0;font-size:.85rem">${ls.get('nwn-ghtok','')?'Đã bật. Gửi thư xong khoảng 1 phút là máy Na báo.':'Dán token GitHub (chỉ quyền Actions của repo app) để thư báo ngay. Token chỉ lưu trên máy này.'}</p>
     <label class="field" for="ghtok">Token GitHub<input id="ghtok" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" value="${ls.get('nwn-ghtok','')?'••••••••':''}"></label>
     <button class="btn ghost" id="ghsave">${ls.get('nwn-ghtok','')?'Đổi token':'Lưu token'}</button>${ls.get('nwn-ghtok','')?'<button class="btn ghost" id="ghdel">Xóa token</button>':''}</div>
   <div class="card stack"><button class="btn ghost" id="rc">Tải lại bài học</button><button class="btn ghost" id="lo">Thoát khỏi máy này</button></div></div>`;
   $('#lim').onclick=()=>{S.newPerDay=S.newPerDay?0:20;touchSettings();save();tSettings()};
+  $('#vidt').onclick=()=>{S.vid=S.vid===0?1:0;touchSettings();save();tSettings()};
   $('#npd')&&($('#npd').onchange=e=>{S.newPerDay=Math.max(1,Math.min(500,Math.round(+e.target.value)||20));touchSettings();save();tSettings()});
   $('#ghsave').onclick=async()=>{const v=$('#ghtok').value.trim();if(!v||v.startsWith('••'))return toast('n02_nghiem_tuc','Dán token vào ô trước đã.');
     try{const r=await fetch('https://api.github.com/repos/damLay03/nihongo-with-na/actions/workflows/remind.yml',{headers:{Authorization:'Bearer '+v,Accept:'application/vnd.github+json'}});if(!r.ok)return toast('na03_boi_roi','Token không dùng được, xem lại quyền nha.',3000)}catch(e){return toast('na03_boi_roi','Không kết nối được GitHub.')}
@@ -1166,7 +1181,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261117183108';let needReload=false;
+const APP_V='20261120123506';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
