@@ -562,7 +562,7 @@ const vidAllowed=()=>!isT()&&S.vid!==0&&!!window.VID;
 const vidOn=()=>vidAllowed()&&LOCAL.vidOff!==dkey();
 function vidH(){return Math.max(18,Math.min(62,+LOCAL.vidH||33))}
 function vidSync(h){h=h||(location.hash||'#home').slice(1);const r=document.documentElement,on=h==='review'&&vidOn(),p=$('#vidp');
-  r.classList.toggle('vidon',on);r.style.setProperty('--vidh',vidH()+'vh');if(!p)return;p.hidden=!on;if(on)VID.start($('#vbox'));else if(window.VID)VID.stop()}
+  r.classList.toggle('vidon',on);if(typeof applyVol==='function')applyVol();r.style.setProperty('--vidh',vidH()+'vh');if(!p)return;p.hidden=!on;if(on)VID.start($('#vbox'));else if(window.VID)VID.stop()}
 function vidInit(){const p=$('#vidp');if(!p||p._ok)return;p._ok=1;
   $('#vclose').onclick=()=>{LOCAL.vidOff=dkey();saveLocal();vidSync();if($('#fl'))renderTop();toast('07_lo_dau','Tắt video tới hết hôm nay nha. Muốn xem lại thì bấm ▶ ở trên',2400)};
   const gr=$('#vgrip');let y0=0,h0=0,drag=false;
@@ -989,7 +989,7 @@ function acInit(){if(AC)return AC;const C=window.AudioContext||window.webkitAudi
   const dl=AC.createDelay(1);dl.delayTime.value=.33;const fb=AC.createGain();fb.gain.value=.28;const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2200;
   mGain=AC.createGain();mGain.connect(comp);mGain.connect(dl);dl.connect(lp);lp.connect(fb);fb.connect(dl);lp.connect(comp);
   fGain=AC.createGain();fGain.connect(comp);applyVol();return AC}
-function applyVol(){if(!AC)return;const t=AC.currentTime;mGain.gain.setTargetAtTime(SND.music?SND.mv*.5*duck:0,t,.15);fGain.gain.setTargetAtTime(SND.fx?SND.fv:0,t,.02)}
+function applyVol(){if(!AC)return;const t=AC.currentTime;mGain.gain.setTargetAtTime(SND.music&&!document.documentElement.classList.contains('vidon')?SND.mv*.5*duck:0,t,.15);fGain.gain.setTargetAtTime(SND.fx?SND.fv:0,t,.02)}
 function tone(dest,f,t,dur,vol,type='sine'){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(dest);o.start(t);o.stop(t+dur+.05)}
 // hộp nhạc: vòng hợp âm C–Am–F–G, giai điệu ngũ cung chọn ngẫu nhiên theo hợp âm, 76 nhịp/phút
@@ -1181,7 +1181,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261120123506';let needReload=false;
+const APP_V='20261120130056';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
