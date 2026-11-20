@@ -3,6 +3,8 @@
 App học tiếng Nhật trên điện thoại: Hiragana, Katakana, Minna no Nihongo N5 (Bài 1–25), Kanji N5 (Unit 1–20).
 Ôn thẻ theo đường cong quên (FSRS), tập viết theo thứ tự nét, game nhỏ, trang giáo viên.
 
+**Mở app:** https://damlay03.github.io/nihongo-with-na/
+
 ## Cách hoạt động
 
 - App tĩnh, chạy trên GitHub Pages, cài được lên màn hình chính (PWA) và dùng được khi mất mạng.
