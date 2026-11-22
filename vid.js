@@ -153,7 +153,7 @@ SC.push({id:'toe',jp:'巻き爪ケア',vn:'Cắt khóe móng chân',len:18,mood:
   const done=seg(p,.9,.94)*(1-seg(p,.97,1));if(done>0){text('スッキリ!',W/2,H*.34,9*u,'#F25C8A',done);for(let i=0;i<5;i++)star(W/2+(rnd(i)-.5)*70*u,H*.3+(rnd(i+4)-.5)*40*u,(3+rnd(i+2)*3)*u,done*(.5+.5*Math.sin(T*6+i)))}
   vignette(.22)}});
 /* 1b. Chăm móng cả bàn chân (cảnh dài ~3 phút): lấy ráy móng, đẩy da, cắt khóe móng mọc ngược, cắt, giũa, đánh bóng, sơn, thoa kem */
-const TOES=[{x:-32,y:-30,w:27,l:31,rot:-.07},{x:-8,y:-33,w:17.5,l:23,rot:-.01},{x:9.5,y:-30,w:16,l:20,rot:.07},{x:25,y:-24,w:14.5,l:17,rot:.15},{x:38.5,y:-15,w:13,l:14,rot:.25}];
+const TOES=[{x:-31,y:-30,w:28,l:31,rot:-.07},{x:-7.5,y:-33,w:18.5,l:23,rot:-.01},{x:9.8,y:-30,w:17,l:20,rot:.07},{x:25.2,y:-24,w:15.2,l:17,rot:.15},{x:38.4,y:-15,w:13.6,l:14,rot:.25}];
 const PED=(()=>{const st=[];let t=0;const add=(toe,act,d,o={})=>{st.push(Object.assign({toe,act,t0:t,d},o));t+=d};
   add(-1,'intro',4);
   add(0,'move',2.5);add(0,'dirt',8);add(0,'cuticle',6);add(0,'lift',3,{side:-1});add(0,'nip',6,{side:-1,n:3});add(0,'pull',5,{side:-1});add(0,'lift',2,{side:1});add(0,'nip',4,{side:1,n:2});add(0,'pull',4,{side:1});add(0,'clip',6,{n:3});add(0,'file',6);add(0,'swab',4);
@@ -186,23 +186,40 @@ function pedCam(tt){let i=PED.st.findIndex(s=>tt<s.t0+s.d);if(i<0)i=PED.st.lengt
   if(s.act==='intro')return [lerp(-20,OV[0],eio(k)),lerp(-14,OV[1],eio(k)),lerp(1.25,1,eio(k))];
   if(s.act==='move'||s.act==='out'){let j=i-1;while(j>=0&&PED.st[j].act==='move')j--;const a=tgt(j),b=s.act==='out'?OV:tgt(i);const e=eio(k);return [lerp(a[0],b[0],e),lerp(a[1],b[1],e),lerp(a[2],b[2],e)]}
   if(s.toe<0)return [OV[0],OV[1],1+(s.act==='done'?.05*Math.sin(k*Math.PI):0)];return tgt(i)}
+const SK='#F8CBB4',SKD='rgba(196,112,92,',SKL='rgba(255,236,224,';
+// viền tối mềm bên trong một hình (nhiều nét chồng = gradient mờ dần), path() phải dựng lại đường viền
+function rim(path,w,a,fade){g.save();path();g.clip();for(let k=8;k>=1;k--){path();g.lineWidth=w*k/4;g.strokeStyle=fade?fade(a*.15):SKD+(a*.15)+')';g.stroke()}g.restore()}
+function footPath(){const W0=TOES.map((t,i)=>wpt(t,0,t.l*(.5+.04*i)));
+  const L0=wpt(TOES[0],-TOES[0].w*.47,TOES[0].l*.62),R0=wpt(TOES[4],TOES[4].w*.5,TOES[4].l*.55);
+  g.beginPath();g.moveTo(L0[0],L0[1]);g.bezierCurveTo(L0[0]-3,L0[1]+16,-50,22,-45,60);g.lineTo(34,60);g.bezierCurveTo(44,22,R0[0]+5,R0[1]+12,R0[0],R0[1]);
+  for(let i=4;i>0;i--){const p=W0[i],q=W0[i-1],ta=TOES[i],tb=TOES[i-1];const wx=(wpt(ta,-ta.w*.5,ta.l*.62)[0]+wpt(tb,tb.w*.5,tb.l*.62)[0])/2,wy=Math.max(p[1],q[1])+4.5;
+    g.quadraticCurveTo(p[0]-ta.w*.3,wy-1,wx,wy);g.quadraticCurveTo(q[0]+tb.w*.3,wy-1,q[0],q[1])}
+  g.closePath()}
 function footDraw(st,pc){
-  // bàn chân + mắt cá
-  shadow(4,40,64,24,.35);
-  for(let i=TOES.length-1;i>=0;i--)toeDraw(TOES[i],st[i],pc,i);
-  // mu bàn chân phủ lên gốc các ngón
-  const B=TOES.map(t=>wpt(t,0,t.l*.8));const top=()=>{g.moveTo(-53,95);g.lineTo(-52,B[0][1]+6);g.quadraticCurveTo(-48,B[0][1]-1,B[0][0],B[0][1]);for(let i=1;i<B.length;i++){const mx=(B[i-1][0]+B[i][0])/2,my=Math.max(B[i-1][1],B[i][1])+4;g.quadraticCurveTo(mx,my,B[i][0],B[i][1])}g.quadraticCurveTo(52,B[4][1]+2,54,B[4][1]+10);g.lineTo(55,95)};
-  g.beginPath();top();g.closePath();fill(lin(-55,0,58,0,[[0,'#D1937C'],[.18,'#F2C1A9'],[.5,'#FFDCC8'],[.82,'#F3C3AB'],[1,'#CB8C74']]));
-  g.save();g.beginPath();top();g.closePath();g.clip();g.fillStyle=lin(0,-30,0,10,[[0,'rgba(190,110,90,.35)'],[.35,'rgba(190,110,90,0)']]);g.fillRect(-60,-40,120,60);
-  g.globalAlpha=.22;for(let i=0;i<4;i++){g.beginPath();g.moveTo(B[i][0]+2,B[i][1]+6);g.quadraticCurveTo(B[i][0]+4,B[i][1]+30,B[i][0]+1,B[i][1]+55);line(2,'#E7A98F')}g.restore();
-  g.beginPath();g.moveTo(-52,B[0][1]+6);g.quadraticCurveTo(-48,B[0][1]-1,B[0][0],B[0][1]);for(let i=1;i<B.length;i++){const mx=(B[i-1][0]+B[i][0])/2,my=Math.max(B[i-1][1],B[i][1])+4;g.quadraticCurveTo(mx,my,B[i][0],B[i][1])}line(.5,'rgba(170,95,80,.35)')}
+  shadow(0,18,70,40,.32);
+  g.beginPath();footPath();fill(SK);
+  // ánh sáng: mu chân sáng ở giữa, tối dần hai bên
+  g.save();footPath();g.clip();g.fillStyle=rad(-4,10,4,-4,10,62,[[0,SKL+'.55)'],[.6,SKL+'0)']]);g.fillRect(-70,-60,140,130);
+  g.fillStyle=lin(0,-20,0,60,[[0,'rgba(0,0,0,0)'],[1,SKD+'.18)']]);g.fillRect(-70,-60,140,130);
+  // gân mu chân: dải sáng mờ thay vì nét kẻ
+  g.globalAlpha=.16;for(let i=0;i<4;i++){const b=wpt(TOES[i],0,TOES[i].l*.9);g.beginPath();g.moveTo(b[0],b[1]+2);g.quadraticCurveTo(b[0]*.8+1,b[1]+22,b[0]*.55,58);line(3.2,'#FFF1E8')}g.restore();
+  rim(footPath,6,.9);
+  for(let i=TOES.length-1;i>=0;i--)toeDraw(TOES[i],st[i],pc,i)}
+function toePath(w,l){const h=w/2;g.beginPath();g.moveTo(-h*.92,l+8);g.bezierCurveTo(-h*.9,l*.66,-h*1.03,l*.38,-h,w*.42);g.bezierCurveTo(-h*.98,-w*.16,h*.98,-w*.16,h,w*.42);g.bezierCurveTo(h*1.03,l*.38,h*.9,l*.66,h*.92,l+8);g.closePath()}
 function toeDraw(t,s,pc,i){const {w,l}=t,{nw,nt,nh}=NG(t);g.save();g.translate(t.x,t.y);g.rotate(t.rot);
-  shadow(w*.08,l*.55,w*.62,l*.55,.32);
-  g.beginPath();g.moveTo(-w/2,l+14);g.lineTo(-w/2,w*.45);g.bezierCurveTo(-w/2,-w*.14,w/2,-w*.14,w/2,w*.45);g.lineTo(w/2,l+14);g.closePath();
-  fill(lin(-w/2,0,w/2,0,[[0,'#D4957D'],[.14,'#F1BDA4'],[.45,'#FFDAC6'],[.78,'#F5C3AB'],[1,'#C98972']]));
-  g.save();g.clip();circ(0,w*.32,w*.55);fill(rad(0,w*.3,0,0,w*.3,w*.55,[[0,'rgba(255,135,135,.28)'],[1,'rgba(255,135,135,0)']]));
-  for(let j=0;j<3;j++){g.beginPath();g.arc(0,l*.74+j*1.3,w*.42,1.18*Math.PI,1.82*Math.PI);line(.22,'rgba(160,90,75,.35)')}
-  for(let j=0;j<40;j++){circ((rnd(j+i*50)-.5)*w,rnd(j+i*50+1)*l,.12);fill('rgba(170,100,90,.18)')}g.restore();
+  // bóng đổ của ngón lên ngón bên cạnh và mu chân
+  g.save();g.translate(w*.12,w*.2);g.scale(1.02,1);toePath(w,l*.55);fill(lin(0,0,0,l*.55,[[0,SKD+'.13)'],[1,SKD+'0)']]));g.restore();
+  toePath(w,l);fill(lin(0,0,0,l+8,[[0,SK],[.7,SK],[1,'rgba(248,203,180,0)']]));
+  g.save();toePath(w,l);g.clip();
+  g.fillStyle=rad(-w*.08,w*.35,0,-w*.08,w*.35,w*.62,[[0,SKL+'.6)'],[1,SKL+'0)']]);g.fillRect(-w,-w,2*w,l+20);
+  g.fillStyle=rad(0,w*.12,0,0,w*.12,w*.55,[[0,'rgba(255,130,125,.2)'],[1,'rgba(255,130,125,0)']]);g.fillRect(-w,-w,2*w,l+20);
+  // đốt ngón: hơi hồng + nếp nhăn ngắn
+  ell(0,l*.64,w*.34,w*.2);fill('rgba(240,150,130,.13)');
+  for(let j=0;j<3;j++){g.beginPath();g.arc(0,l*.6+j*1.1,w*(.2+.04*j),1.3*Math.PI,1.7*Math.PI);line(.2,'rgba(170,95,80,'+(.28-.06*j)+')')}
+  for(let j=0;j<24;j++){circ((rnd(j+i*50)-.5)*w*.8,rnd(j+i*50+1)*l*.8,.1);fill('rgba(170,100,90,.13)')}
+  g.restore();
+  // viền tối hai bên ngón, mờ dần về gốc để liền với bàn chân
+  const fd=a=>lin(0,0,0,l+4,[[0,SKD+a+')'],[.7,SKD+(a*.6)+')'],[1,SKD+'0)']]);rim(()=>toePath(w,l),w*.16,1,fd);
   // da sưng ở khóe móng (ngón cái)
   if(i===0){for(const [side,v] of [[-1,s.inL],[1,s.inR]]){if(v<=.01)continue;const lift=(s.lift*side>0?s.lift*side:0)*1.4;g.save();g.globalAlpha=v;ell(side*nw*.56,nt+nh*.34-lift,4.2,7.5,side*.12);fill(rad(side*nw*.56,nt+nh*.34,.3,side*nw*.56,nt+nh*.34,7.5,[[0,'rgba(255,100,100,.85)'],[.6,'rgba(255,140,130,.45)'],[1,'rgba(255,160,150,0)']]));g.restore()}}
   // mép tự do màu trắng (dài/ngắn tuỳ đã cắt), móng, ráy dưới móng
