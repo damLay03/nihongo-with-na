@@ -152,6 +152,130 @@ SC.push({id:'toe',jp:'巻き爪ケア',vn:'Cắt khóe móng chân',len:18,mood:
   ev(p,pp,[.89],()=>{S_.snip();S_.crack();burst(W/2,H*.3,1,{c:'#FFF6EF',r:3,sp:50,gr:150,life:1.4,dir:-Math.PI/2,spread:.6,draw:(q)=>{g.beginPath();g.arc(0,8*u,10*u,1.25*Math.PI,1.75*Math.PI);line(1.6*u,'#FFF3EC')}})});
   const done=seg(p,.9,.94)*(1-seg(p,.97,1));if(done>0){text('スッキリ!',W/2,H*.34,9*u,'#F25C8A',done);for(let i=0;i<5;i++)star(W/2+(rnd(i)-.5)*70*u,H*.3+(rnd(i+4)-.5)*40*u,(3+rnd(i+2)*3)*u,done*(.5+.5*Math.sin(T*6+i)))}
   vignette(.22)}});
+/* 1b. Chăm móng cả bàn chân (cảnh dài ~3 phút): lấy ráy móng, đẩy da, cắt khóe móng mọc ngược, cắt, giũa, đánh bóng, sơn, thoa kem */
+const TOES=[{x:-32,y:-30,w:27,l:31,rot:-.07},{x:-8,y:-33,w:17.5,l:23,rot:-.01},{x:9.5,y:-30,w:16,l:20,rot:.07},{x:25,y:-24,w:14.5,l:17,rot:.15},{x:38.5,y:-15,w:13,l:14,rot:.25}];
+const PED=(()=>{const st=[];let t=0;const add=(toe,act,d,o={})=>{st.push(Object.assign({toe,act,t0:t,d},o));t+=d};
+  add(-1,'intro',4);
+  add(0,'move',2.5);add(0,'dirt',8);add(0,'cuticle',6);add(0,'lift',3,{side:-1});add(0,'nip',6,{side:-1,n:3});add(0,'pull',5,{side:-1});add(0,'lift',2,{side:1});add(0,'nip',4,{side:1,n:2});add(0,'pull',4,{side:1});add(0,'clip',6,{n:3});add(0,'file',6);add(0,'swab',4);
+  for(let i=1;i<5;i++){add(i,'move',2);add(i,'dirt',5);add(i,'cuticle',3);add(i,'clip',4.5,{n:2});add(i,'file',3.5)}
+  add(-1,'out',2.5);
+  for(let i=0;i<5;i++){add(i,'move',1.6);add(i,'buff',3);add(i,'polish',4.5)}
+  add(-1,'out',2.5);add(-1,'shine',4);add(-1,'lotion',8);add(-1,'done',5);
+  return {st,len:t}})();
+const PCOL=['#F25C8A','#D7263D','#B59CF5','#6FD3B8','#E8B4A0','#5B8DEF'];
+let PP=[];
+function pemit(o){if(PP.length<200)PP.push(Object.assign({vx:0,vy:0,gr:60,age:0,life:1,rot:0,vr:0,r:.6,c:'#fff'},o))}
+function pstep(dt){PP=PP.filter(q=>{q.age+=dt;if(q.age>q.life)return false;q.vy+=q.gr*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.rot+=q.vr*dt;return true})}
+function pdraw(){for(const q of PP){g.save();g.globalAlpha=1-Math.pow(q.age/q.life,3);g.translate(q.x,q.y);g.rotate(q.rot);if(q.draw)q.draw(q);else{circ(0,0,q.r);fill(q.c)}g.restore()}}
+// điểm trên móng (toạ độ của ngón) đổi ra toạ độ thế giới
+function wpt(t,lx,ly){const c=Math.cos(t.rot),s=Math.sin(t.rot);return [t.x+lx*c-ly*s,t.y+lx*s+ly*c]}
+const NG=t=>({nw:t.w*.7,nt:t.w*.2,nh:t.l*.42});
+function pedState(tt){const S0=TOES.map(()=>({dirt:1,cut:1,edge:1,polish:0,buff:0,inL:1,inR:1,spL:1,spR:1,lift:0,swab:0}));
+  for(const s of PED.st){if(s.t0>tt)break;const k=cl((tt-s.t0)/s.d),o=s.toe>=0?S0[s.toe]:null;
+    if(s.toe<0){if(s.act==='shine')S0.forEach(q=>q.buff=Math.max(q.buff,1+k));continue}
+    if(s.act==='dirt')o.dirt=1-k;if(s.act==='cuticle')o.cut=1-k;if(s.act==='file')o.filed=k;
+    if(s.act==='clip')o.edge=1-Math.floor(k*s.n+.0001)/s.n;
+    if(s.act==='lift')o.lift=s.side*Math.sin(k*Math.PI*.5);
+    if(s.act==='nip'){const n=Math.floor(k*s.n+.0001)/s.n;if(s.side<0)o.spL=1-.6*n;else o.spR=1-.6*n}
+    if(s.act==='pull'){if(s.side<0){o.spL=.4*(1-k);o.inL=1-k*.7}else{o.spR=.4*(1-k);o.inR=1-k*.7}}
+    if(s.act==='swab'){o.swab=k;o.inL=Math.min(o.inL,.3*(1-k));o.inR=Math.min(o.inR,.3*(1-k))}
+    if(s.act==='buff')o.buff=k;if(s.act==='polish')o.polish=k}
+  return S0}
+function pedCam(tt){let i=PED.st.findIndex(s=>tt<s.t0+s.d);if(i<0)i=PED.st.length-1;const OV=[3,-16,1],tgt=j=>{if(j<0)return OV;const s=PED.st[j];if(s.toe<0)return OV;const t=TOES[s.toe],N=NG(t),[x,y]=wpt(t,0,N.nt+N.nh*.3);return [x,y,s.toe===0?2.3:2.9]};
+  const s=PED.st[i],k=cl((tt-s.t0)/s.d);
+  if(s.act==='intro')return [lerp(-20,OV[0],eio(k)),lerp(-14,OV[1],eio(k)),lerp(1.25,1,eio(k))];
+  if(s.act==='move'||s.act==='out'){let j=i-1;while(j>=0&&PED.st[j].act==='move')j--;const a=tgt(j),b=s.act==='out'?OV:tgt(i);const e=eio(k);return [lerp(a[0],b[0],e),lerp(a[1],b[1],e),lerp(a[2],b[2],e)]}
+  if(s.toe<0)return [OV[0],OV[1],1+(s.act==='done'?.05*Math.sin(k*Math.PI):0)];return tgt(i)}
+function footDraw(st,pc){
+  // bàn chân + mắt cá
+  shadow(4,40,64,24,.35);
+  for(let i=TOES.length-1;i>=0;i--)toeDraw(TOES[i],st[i],pc,i);
+  // mu bàn chân phủ lên gốc các ngón
+  const B=TOES.map(t=>wpt(t,0,t.l*.8));const top=()=>{g.moveTo(-53,95);g.lineTo(-52,B[0][1]+6);g.quadraticCurveTo(-48,B[0][1]-1,B[0][0],B[0][1]);for(let i=1;i<B.length;i++){const mx=(B[i-1][0]+B[i][0])/2,my=Math.max(B[i-1][1],B[i][1])+4;g.quadraticCurveTo(mx,my,B[i][0],B[i][1])}g.quadraticCurveTo(52,B[4][1]+2,54,B[4][1]+10);g.lineTo(55,95)};
+  g.beginPath();top();g.closePath();fill(lin(-55,0,58,0,[[0,'#D1937C'],[.18,'#F2C1A9'],[.5,'#FFDCC8'],[.82,'#F3C3AB'],[1,'#CB8C74']]));
+  g.save();g.beginPath();top();g.closePath();g.clip();g.fillStyle=lin(0,-30,0,10,[[0,'rgba(190,110,90,.35)'],[.35,'rgba(190,110,90,0)']]);g.fillRect(-60,-40,120,60);
+  g.globalAlpha=.22;for(let i=0;i<4;i++){g.beginPath();g.moveTo(B[i][0]+2,B[i][1]+6);g.quadraticCurveTo(B[i][0]+4,B[i][1]+30,B[i][0]+1,B[i][1]+55);line(2,'#E7A98F')}g.restore();
+  g.beginPath();g.moveTo(-52,B[0][1]+6);g.quadraticCurveTo(-48,B[0][1]-1,B[0][0],B[0][1]);for(let i=1;i<B.length;i++){const mx=(B[i-1][0]+B[i][0])/2,my=Math.max(B[i-1][1],B[i][1])+4;g.quadraticCurveTo(mx,my,B[i][0],B[i][1])}line(.5,'rgba(170,95,80,.35)')}
+function toeDraw(t,s,pc,i){const {w,l}=t,{nw,nt,nh}=NG(t);g.save();g.translate(t.x,t.y);g.rotate(t.rot);
+  shadow(w*.08,l*.55,w*.62,l*.55,.32);
+  g.beginPath();g.moveTo(-w/2,l+14);g.lineTo(-w/2,w*.45);g.bezierCurveTo(-w/2,-w*.14,w/2,-w*.14,w/2,w*.45);g.lineTo(w/2,l+14);g.closePath();
+  fill(lin(-w/2,0,w/2,0,[[0,'#D4957D'],[.14,'#F1BDA4'],[.45,'#FFDAC6'],[.78,'#F5C3AB'],[1,'#C98972']]));
+  g.save();g.clip();circ(0,w*.32,w*.55);fill(rad(0,w*.3,0,0,w*.3,w*.55,[[0,'rgba(255,135,135,.28)'],[1,'rgba(255,135,135,0)']]));
+  for(let j=0;j<3;j++){g.beginPath();g.arc(0,l*.74+j*1.3,w*.42,1.18*Math.PI,1.82*Math.PI);line(.22,'rgba(160,90,75,.35)')}
+  for(let j=0;j<40;j++){circ((rnd(j+i*50)-.5)*w,rnd(j+i*50+1)*l,.12);fill('rgba(170,100,90,.18)')}g.restore();
+  // da sưng ở khóe móng (ngón cái)
+  if(i===0){for(const [side,v] of [[-1,s.inL],[1,s.inR]]){if(v<=.01)continue;const lift=(s.lift*side>0?s.lift*side:0)*1.4;g.save();g.globalAlpha=v;ell(side*nw*.56,nt+nh*.34-lift,4.2,7.5,side*.12);fill(rad(side*nw*.56,nt+nh*.34,.3,side*nw*.56,nt+nh*.34,7.5,[[0,'rgba(255,100,100,.85)'],[.6,'rgba(255,140,130,.45)'],[1,'rgba(255,160,150,0)']]));g.restore()}}
+  // mép tự do màu trắng (dài/ngắn tuỳ đã cắt), móng, ráy dưới móng
+  const fe=.6+s.edge*w*.13;
+  rr(-nw/2,nt-fe,nw,fe+nw*.35,nw*.34);fill(lin(0,nt-fe,0,nt+1,[[0,'#FFFDF8'],[1,'#F6ECE4']]));
+  if(s.dirt>0){g.save();g.globalAlpha=s.dirt*.85;g.beginPath();g.ellipse(0,nt+.1,nw*.44,.9+.5*s.dirt,0,Math.PI,TAU);fill('#7A6150');g.restore()}
+  rr(-nw/2,nt,nw,nh,nw*.3);fill(lin(0,nt,0,nt+nh,[[0,'#F7C9C2'],[.6,'#F2B3AE'],[1,'#F6C3BA']]));
+  ell(0,nt+nh-.4,nw*.28,nh*.17);fill('rgba(255,246,242,.6)');
+  // sơn móng: quét từ trái sang phải
+  if(s.polish>0){g.save();rr(-nw/2,nt-fe,nw,fe+nh,nw*.32);g.clip();const pw=nw*1.1*s.polish;g.beginPath();g.rect(-nw/2-.5,nt-fe-1,pw,fe+nh+2);fill(lin(-nw/2,0,nw/2,0,[[0,dk(pc,.12)],[.35,pc],[.6,lt(pc,.12)],[1,dk(pc,.1)]]));g.restore()}
+  // da thừa ở chân móng
+  if(s.cut>0){g.save();g.globalAlpha=.75*s.cut;rr(-nw*.46,nt+nh-1.1,nw*.92,1.6+s.cut,1);fill('#FBE9E0');for(let j=0;j<5;j++){circ(-nw*.4+j*nw*.2,nt+nh+.3,.35);fill('rgba(255,255,255,.9)')}g.restore()}
+  g.beginPath();g.moveTo(-nw*.45,nt+nh+.1);g.quadraticCurveTo(0,nt+nh+1.6,nw*.45,nt+nh+.1);line(.35,'rgba(200,120,105,.6)');
+  // bóng loáng
+  g.save();rr(-nw/2,nt-fe,nw,fe+nh,nw*.32);g.clip();const sh=.12+.25*Math.min(1,s.buff)+(s.polish>0?.12:0)+(s.buff>1?.3*Math.sin((s.buff-1)*Math.PI):0);g.globalAlpha=sh;g.beginPath();g.moveTo(-nw*.32,nt-fe);g.lineTo(-nw*.12,nt-fe);g.lineTo(-nw*.22,nt+nh);g.lineTo(-nw*.42,nt+nh);g.closePath();fill('#ffffff');
+  if(s.buff>1){const sx=lerp(-nw,nw,s.buff-1);g.globalAlpha=.6;g.beginPath();g.rect(sx,nt-fe,nw*.18,fe+nh);fill('#ffffff')}g.restore();
+  rr(-nw/2,nt-fe,nw,fe+nh,nw*.32);line(.25,'rgba(170,100,95,.45)');
+  // gai móng mọc ngược vào da (ngón cái)
+  if(i===0)for(const [side,v] of [[-1,s.spL],[1,s.spR]]){if(v<=.01)continue;const L=v*7;g.save();g.globalAlpha=.85;g.beginPath();g.moveTo(side*nw*.48,nt+3);g.quadraticCurveTo(side*(nw*.56),nt+5,side*(nw*.5+1.6*v),nt+3+L);g.lineTo(side*nw*.44,nt+5);g.closePath();fill('#FFF4EE');line(.2,'rgba(170,100,95,.6)');g.restore()}
+  g.restore()}
+/* dụng cụ, vẽ trong toạ độ thế giới (đơn vị u) */
+function tPick(x,y,ang,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);rr(0,-.7,34,1.4,.7);fill(lin(0,-.7,0,.7,[[0,'#F3D9B5'],[1,'#C9A27A']]));g.beginPath();g.moveTo(0,-.7);g.lineTo(-3,0);g.lineTo(0,.7);g.closePath();fill('#E8C9A0');g.restore()}
+function tCurette(x,y,ang,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);rr(2,-.45,30,.9,.45);fill(metal(0,-.45,0,.45));rr(14,-1.3,22,2.6,1.3);fill(lin(0,-1.3,0,1.3,[[0,'#9AD0F0'],[1,'#4D8FBF']]));ell(1,0,1.6,.9);fill(metal(0,-.9,0,.9));g.restore()}
+function tNipper(x,y,ang,open,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);for(const sg of[-1,1]){g.save();g.rotate(sg*open*.5);g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(4,sg*-1.6,10,sg*-1.8);g.lineTo(26,sg*-2.8);g.lineTo(26.5,sg*-1.2);g.lineTo(10,sg*-.4);g.quadraticCurveTo(4,0,0,0);g.closePath();fill(metal(0,sg*-2.6,0,0));line(.12,'rgba(60,70,90,.5)');g.restore()}circ(9.5,-.4,1);fill(rad(9.2,-.8,.1,9.5,-.4,1,[[0,'#fff'],[1,'#7E8A9C']]));g.restore()}
+function tClipper(x,y,ang,press,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);rr(-1,-2.2,26,4.4,2.2);fill(metal(0,-2.2,0,2.2));g.save();g.translate(18,-2.2);g.rotate(-.25+press*.2);rr(-18,-1.6,22,1.6,.8);fill(metal(0,-1.6,0,0));g.restore();rr(-1.5,-2.6,4,5.2,1);fill(metal(-1.5,0,2.5,0));g.restore()}
+function tTweez(x,y,ang,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);for(const s of[-1,1]){g.beginPath();g.moveTo(0,s*.15);g.lineTo(28,s*1.8);g.lineTo(28,s*.7);g.lineTo(0,0);g.closePath();fill(metal(0,0,0,s*1.8))}g.restore()}
+function tFile(x,y,ang,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);rr(-15,-1.4,30,2.8,1.4);fill(lin(0,-1.4,0,1.4,[[0,'#FFB6CB'],[.5,'#F48FB1'],[1,'#E86F9A']]));g.save();g.globalAlpha=.3*a;for(let i=0;i<30;i++){circ(-14+i,(rnd(i)-.5)*2,.12);fill('#fff')}g.restore();g.restore()}
+function tBuff(x,y,ang,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);rr(-9,-2.4,18,4.8,1.2);fill('#FFFFFF');for(let i=0;i<4;i++){rr(-9,-2.4+i*1.2,18,1.2,0);fill(['#FFC1D6','#C9E7FF','#D8F5C9','#FFF0B3'][i])}rr(-9,-2.4,18,4.8,1.2);line(.15,'rgba(0,0,0,.15)');g.restore()}
+function tBrush(x,y,ang,c,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);g.beginPath();g.moveTo(0,-.9);g.lineTo(4,-1.2);g.lineTo(4,1.2);g.lineTo(0,.9);g.closePath();fill(dk(c,.1));rr(4,-.6,8,1.2,.4);fill('#D9DDE3');rr(12,-1.8,16,3.6,1.6);fill(lin(0,-1.8,0,1.8,[[0,'#3A3A46'],[.5,'#5A5A6A'],[1,'#22222A']]));g.restore()}
+function tSwab(x,y,ang,a=1){g.save();g.globalAlpha=a;g.translate(x,y);g.rotate(ang);rr(2,-.4,30,.8,.4);fill('#F2E6D8');ball(0,0,2.4,'#F4F8FF',.5);g.restore()}
+SC.push({id:'pedi',jp:'フットケア',vn:'Chăm móng cả bàn chân',len:PED.len,mood:'dream',long:1,init(){PP=[]},draw(p,pp,cyc,dt){
+  const tt=p*PED.len,pt=pp*PED.len,st=pedState(tt),pc=PCOL[cyc%PCOL.length],[cx,cy,z0]=pedCam(tt),z=z0*Math.min(W/(125*u),H/(92*u));
+  g.drawImage(towelTex('#F4E3E9'),0,0);g.fillStyle=rad(W*.3,0,0,W*.4,H*.3,W,[[0,'rgba(255,248,230,.35)'],[1,'rgba(255,248,230,0)']]);g.fillRect(0,0,W,H);
+  pstep(dt);
+  g.save();g.translate(W/2,H/2);g.scale(z*u,z*u);g.translate(-cx,-cy);
+  footDraw(st,pc);
+  // dụng cụ của bước hiện tại
+  const si=PED.st.findIndex(s=>tt<s.t0+s.d),s=PED.st[si<0?PED.st.length-1:si],k=cl((tt-s.t0)/s.d),fade=seg(k,0,.12)*(1-seg(k,.88,1));
+  if(s.toe>=0&&s.act!=='move'){const t=TOES[s.toe],N=NG(t),sd=s.side||-1,P=(lx,ly)=>wpt(t,lx,ly),fe=.6+st[s.toe].edge*t.w*.13;
+    if(s.act==='dirt'){const ph=(k*5)%1,sx=lerp(-N.nw*.4,N.nw*.4,(Math.floor(k*5)%2?1-ph:ph)),[x,y]=P(sx,N.nt-.2);tCurette(x,y,t.rot-2.3,fade)}
+    if(s.act==='cuticle'){const sx=Math.sin(k*TAU*3)*N.nw*.35,[x,y]=P(sx,N.nt+N.nh+.6);tPick(x,y,t.rot+1.25,fade)}
+    if(s.act==='lift'){const [x,y]=P(sd*N.nw*.5,N.nt+3);tPick(x,y,t.rot+(sd<0?2.6:.55),fade)}
+    if(s.act==='nip'){let open=.3;for(let j=0;j<s.n;j++){const d=k-(j+.6)/s.n;if(d>-.12&&d<0)open=.3*(-d/.12);if(d>=0&&d<.05)open=0}const j=Math.min(s.n-1,Math.floor(k*s.n)),[x,y]=P(sd*N.nw*.5,N.nt+1.5+j*1.6);tNipper(x,y,t.rot+(sd<0?-.9:-2.25),open,fade)}
+    if(s.act==='pull'){const pull=eio(seg(k,.15,.85)),[x,y]=P(sd*(N.nw*.5+1.5+pull*6),N.nt+4-pull*8);tTweez(x+Math.sin(k*300)*.15*(1-pull),y,t.rot+(sd<0?-2.4:-.75),fade);
+      if(pull>0&&pull<1){g.save();g.translate(x,y);g.rotate(t.rot);g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(-sd*1.5,2,-sd*2.2,5.5);g.lineTo(-sd*1,1);g.closePath();fill('#FFF4EE');line(.15,'rgba(170,100,95,.6)');g.restore()}}
+    if(s.act==='clip'){const j=Math.min(s.n-1,Math.floor(k*s.n)),q=(k*s.n)%1,press=q>.45&&q<.6?1:0,[x,y]=P(-N.nw*.5+N.nw*(j+.5)/s.n,N.nt-fe+.4);tClipper(x,y,t.rot-Math.PI/2,press,fade)}
+    if(s.act==='file'){const sw=Math.sin(k*TAU*5)*N.nw*.35,[x,y]=P(sw,N.nt-fe-1.2);tFile(x,y,t.rot+.05,fade)}
+    if(s.act==='swab'){const dab=Math.abs(Math.sin(k*TAU*3))*1.2,[x,y]=P(-N.nw*.55+dab+(k>.5?N.nw*1.1:0),N.nt+N.nh*.35-dab);tSwab(x,y,t.rot+(k>.5?-.6:-2.5),fade)}
+    if(s.act==='buff'){const sw=Math.sin(k*TAU*4)*N.nw*.3,[x,y]=P(sw,N.nt+N.nh*.4);tBuff(x,y,t.rot,fade)}
+    if(s.act==='polish'){const [x,y]=P(-N.nw/2+N.nw*1.05*k,N.nt+N.nh*.35+Math.sin(k*TAU*3)*N.nh*.25);tBrush(x,y,t.rot+1.75,pc,fade)}}
+  if(s.act==='lotion'){g.save();g.globalAlpha=.5*bell(k,0,1);for(let j=0;j<6;j++){const a=k*TAU*2+j;ell(Math.cos(a)*24,18+Math.sin(a)*12,9,4.5,a);fill('rgba(255,255,255,.55)')}g.restore();
+    for(const sg of[-1,1]){const hx=sg*28+Math.sin(k*TAU*3)*6,hy=30+Math.cos(k*TAU*3)*4;g.save();g.globalAlpha=fade;g.translate(hx,hy);g.rotate(sg*.4);rr(-9,-4,18,28,8);fill(lin(-9,0,9,0,[[0,'#E7AE92'],[.4,'#FFD9C4'],[1,'#E2A487']]));g.restore()}}
+  pdraw();g.restore();
+  // âm thanh + hạt theo bước
+  const fire=(fr,fn)=>{for(const s2 of PED.st){if(s2.t0>tt+.5)break;for(const f of fr(s2)){const at=s2.t0+f*s2.d;if(pt<at&&tt>=at)fn(s2,f)}}};
+  if(pt<=tt){
+    fire(s2=>s2.act==='dirt'?[.1,.3,.5,.7,.9]:[],s2=>{nz(.22,900,{q:2,v:.5,type:'bandpass',f2:2200});const t=TOES[s2.toe],N=NG(t),[x,y]=wpt(t,(Math.random()-.5)*N.nw*.6,N.nt-1);for(let j=0;j<4;j++)pemit({x,y,vx:(Math.random()-.5)*16,vy:-4-Math.random()*6,gr:90,life:.8,r:.35+Math.random()*.4,c:'#7A6150'})});
+    fire(s2=>s2.act==='cuticle'?[.15,.32,.5,.66,.82]:[],()=>{nz(.18,1500,{q:3,v:.3,f2:900});S_.squeak()});
+    fire(s2=>s2.act==='nip'?Array.from({length:s2.n},(_,j)=>(j+.6)/s2.n):[],s2=>{S_.snip();S_.crack();const t=TOES[0],N=NG(t),[x,y]=wpt(t,(s2.side||-1)*N.nw*.5,N.nt+2);pemit({x,y,vx:(s2.side||-1)*14,vy:-14,gr:50,life:1.4,vr:8,draw:()=>{g.beginPath();g.moveTo(-1.4,0);g.quadraticCurveTo(0,-.9,1.4,0);g.quadraticCurveTo(0,.3,-1.4,0);fill('#FFF3EC')}})});
+    fire(s2=>s2.act==='pull'?[.2,.35,.5,.65]:[],()=>S_.squeak());fire(s2=>s2.act==='pull'?[.86]:[],()=>{S_.pop();S_.ding(1760)});
+    fire(s2=>s2.act==='clip'?Array.from({length:s2.n},(_,j)=>(j+.52)/s2.n):[],s2=>{S_.snip();S_.crack();tn(240,.06,{v:.25});const t=TOES[s2.toe],N=NG(t),[x,y]=wpt(t,0,N.nt-2);pemit({x,y,vx:(Math.random()-.5)*20,vy:-18,gr:50,life:1.6,vr:6,draw:()=>{g.beginPath();g.arc(0,2.5,3,1.2*Math.PI,1.8*Math.PI);line(.7,'#FFF6EF')}})});
+    fire(s2=>s2.act==='swab'?[.15,.32,.5,.66,.83]:[],()=>nz(.1,1100,{v:.25,type:'lowpass'}));
+    fire(s2=>s2.act==='polish'?[.05,.38,.7]:[],()=>nz(.5,2600,{q:1.2,v:.25,f2:1800,att:.08}));
+    fire(s2=>s2.act==='buff'?[.1,.35,.6,.85]:[],()=>nz(.25,3000,{q:.8,v:.25,att:.06}));
+    fire(s2=>s2.act==='lotion'?[0,.12,.25,.37,.5,.62,.75,.87]:[],()=>S_.squish());
+    fire(s2=>s2.act==='shine'?[.1,.4,.7]:[],()=>S_.ding(1568+Math.random()*600));
+    fire(s2=>s2.act==='done'?[.05]:[],()=>{S_.ding(2093);S_.ding(1568)})}
+  if(s.act==='file'&&s.toe>=0)hiss(.22,4800+Math.sin(k*TAU*5)*1600,1.3);else hiss(0);
+  if(s.act==='done'){const a=bell(k,0,1);text('スッキリ!',W/2,H*.3,9*u,pc,a);for(let j=0;j<6;j++)star(W/2+(rnd(j)-.5)*80*u,H*.35+(rnd(j+4)-.5)*40*u,(3+rnd(j+2)*3)*u,a*(.5+.5*Math.sin(T*6+j)))}
+  // phụ đề công đoạn
+  const CAP={dirt:'Lấy ráy móng',cuticle:'Đẩy da thừa',lift:'Nâng khóe móng',nip:'Cắt khóe móng mọc ngược',pull:'Gắp gai móng ra',clip:'Cắt móng',file:'Giũa móng',swab:'Sát khuẩn',buff:'Đánh bóng',polish:'Sơn móng',shine:'Bóng loáng',lotion:'Thoa kem dưỡng'};
+  if(CAP[s.act]){g.save();g.globalAlpha=.85*seg(k,0,.1)*(1-seg(k,.92,1));g.font=`800 ${4.2*u}px sans-serif`;const tw=g.measureText(CAP[s.act]).width;rr(W/2-tw/2-3*u,H-11*u,tw+6*u,7*u,3.5*u);fill('rgba(60,30,40,.55)');g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(CAP[s.act],W/2,H-7.5*u);g.restore()}
+  vignette(.2)}});
 /* 2. Nấu ramen */
 SC.push({id:'ramen',jp:'ラーメン',vn:'Nấu ramen',len:16,mood:'warm',draw(p,pp){
   g.drawImage(woodTex('#7A4E33'),0,0);vignette(.35);
@@ -476,11 +600,12 @@ function build(host){box=host;box.innerHTML=`<canvas aria-hidden="true"></canvas
 window.VID={scenes:SC.map(s=>s.id),
   start(host){if(!box||box!==host)build(host);if(running)return;running=true;let sv=null;try{sv=localStorage.getItem('nwn-vidsc')}catch(e){}
     if(!this._seen){this._seen=1;const i=SC.findIndex(s=>s.id===sv);show(i>=0?i:Math.floor(Math.random()*SC.length))}else show(cur);
-    size();last=0;if(!raf)raf=requestAnimationFrame(frame);aud();vol();if(!LO.timer)LO.timer=setInterval(lofiTick,90)},
+    size();last=0;if(!raf)raf=requestAnimationFrame(frame);aud();vol();/* nhạc lofi tắt: anh chọn chỉ nghe tiếng của chính cảnh */},
   stop(){if(!running)return;running=false;hiss(0);vol();if(raf){cancelAnimationFrame(raf);raf=0}clearInterval(LO.timer);LO.timer=0},
   duck(on){duckV=on?.12:1;vol()},
   show(id){const i=SC.findIndex(s=>s.id===id);if(i>=0)show(i)},
   seek(t){T=t;prevT=t},
+  len(){return SC[cur].len},
   dbg(){return {ctx:A?A.state:'none',master:master?master.gain.value:null,running,muted,duck:duckV}},
   get cur(){return SC[cur].id}};
 })();
