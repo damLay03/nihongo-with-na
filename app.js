@@ -259,6 +259,9 @@ function newIds(n,deck){
 
 /* ---------- router ---------- */
 const app=$('#app');
+const ICO=(()=>{const f=d=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;return {l:f('<path d="M14.5 5.5 8 12l6.5 6.5"/>'),r:f('<path d="M9.5 5.5 16 12l-6.5 6.5"/>'),x:f('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),p:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.2-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z"/></svg>'}})();
+// thanh trượt: tô phần đã kéo
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.type==='range'){const a=+t.min||0,b=+t.max||100;t.style.setProperty('--p',((t.value-a)/(b-a)*100)+'%')}});
 const NAVS=[['home','Hôm nay','home'],['lessons','Bài học','book'],['album','Sticker','gift'],['games','Trò chơi','game'],['me','Tớ','me']];
 const TNAVS=[['t-home','Tổng quan','chart'],['t-msg','Lời nhắn','mail'],['t-unlock','Mở bài','lock'],['t-lessons','Xem bài','book'],['t-set','Cài đặt','gear']];
 function nav(active){if(isT()){active={lessons:'t-lessons',home:'t-home',me:'t-set'}[active]||active;$('#nav').innerHTML=TNAVS.map(([h,l,i])=>`<a href="#${h}" ${active===h?'aria-current="page"':''}>${ICON[i]}<span>${l}</span></a>`).join('');$('.nav').hidden=false;return}
@@ -374,7 +377,7 @@ function vHome(){nav('home');
       ${due+nl?'':(newIds(1).length?'<button class="btn ghost wide" id="extra">Học thêm 5 thẻ mới</button>':'')}
       <p class="muted" style="margin:0;font-size:.88rem">Chạm thẻ để lật, vuốt trái là Quên, vuốt phải là Được. App tự tính ngày ôn lại theo đường cong quên, giống Anki.</p>
     </div>
-    <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>own(s.id)).sort((a,b)=>own(a.id)-own(b.id)).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span aria-hidden="true">›</span></a>
+    <a class="card albumcard" href="#album"><span class="stk3">${STK_ALL.filter(s=>own(s.id)).sort((a,b)=>own(a.id)-own(b.id)).slice(-3).map(s=>`<img src="${SIMG(s.id)}" alt="">`).join('')||`<img src="${IMG('02_ban_tay_tim')}" alt="">`}</span><span style="min-width:0"><b>Bộ sưu tập sticker</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${stkHave()}/${stkTotal()} sticker · ${starBal()} sao để mua thêm</span></span><span class="chev" aria-hidden="true"></span></a>
     <div class="card stack"><h3>Đang mở để học</h3><div class="row">${unlockedDecks().map(d=>`<a class="pill" href="#lesson-${d.id}" style="text-decoration:none;color:inherit">${d.name}</a>`).join('')}</div></div>
   </div>`;
   $('#letter')&&($('#letter').onclick=openLetter);$('#thaw')&&($('#thaw').onclick=payThaw);$('#qk')&&($('#qk').onclick=()=>go('quick'));
@@ -394,7 +397,7 @@ function quickDone(i){const q=qState();q.done[i]=1;saveLocal();QK=null;go('quick
 function vQuick(){nav('home');const q=qState();const nx=q.done.findIndex(d=>!d);
   if(nx<0&&!q.paid){q.paid=1;saveLocal();S.stars+=5;track('quick');markStudy();save();sync();setTimeout(()=>{rain(28)},200)}
   const all=nx<0;
-  app.innerHTML=`<div class="stack"><div class="top"><button class="back" onclick="go('home')" aria-label="Về trang chính">‹</button><h2 style="flex:1">5 phút với anh</h2></div>
+  app.innerHTML=`<div class="stack"><div class="top"><button class="back" onclick="go('home')" aria-label="Về trang chính">${ICO.l}</button><h2 style="flex:1">5 phút với anh</h2></div>
    <div class="hero"><img src="${IMG(all?'08_an_mung':nx===0?'n04_co_vu':'n03_ninh_na')}" alt=""><div class="bubble">${all?'Xong hết rồi! Có 5 phút thôi mà em làm giỏi ghê. Thưởng em 5 sao nè!':nx===0?'Mình làm nhanh 3 bước thôi, xong là được 5 sao nha em!':'Giỏi quá, làm tiếp bước sau nha~'}</div></div>
    <div class="card stack">${QSTEPS.map(([h,l,ic],i)=>`<div class="qstep${q.done[i]?' ok':i===nx?' now':''}"><span class="qic">${q.done[i]?'✓':ic}</span><b>${l}</b></div>`).join('')}</div>
    ${all?'<a class="btn wide" href="#home">Về trang chính</a><a class="btn ghost wide" href="#games">Chơi thêm game</a>':`<button class="btn wide" id="qgo">${nx===0?'Bắt đầu':'Làm bước '+(nx+1)}</button>`}</div>`;
@@ -412,7 +415,7 @@ function calCard(){const el=$('#cal');if(!el)return;const now=new Date(),m=new D
   let got=0;for(const [n,st] of CAL_MS)if(cnt>=n&&!evN('cal-'+mk+'-'+n)){S.ev=S.ev||{};S.ev['cal-'+mk+'-'+n]=1;S.stars+=st;got+=st}
   if(got){save();sync();setTimeout(()=>{toast('08_an_mung',`Đủ ${cnt} dấu chân tháng này! Thưởng em ${got} sao nè~`,2600);rain(18)},400)}
   const nextMs=CAL_MS.find(([n])=>cnt<n);
-  el.innerHTML=`<div class="row" style="justify-content:space-between"><button class="back" id="cp" aria-label="Tháng trước">‹</button><h3 style="margin:0">Dấu chân tháng ${M+1}/${Y}</h3><button class="back" id="cn" aria-label="Tháng sau" ${calOff>=0?'disabled style="opacity:.3"':''}>›</button></div>
+  el.innerHTML=`<div class="row" style="justify-content:space-between"><button class="back" id="cp" aria-label="Tháng trước">${ICO.l}</button><h3 style="margin:0">Dấu chân tháng ${M+1}/${Y}</h3><button class="back" id="cn" aria-label="Tháng sau" ${calOff>=0?'disabled':''}>${ICO.r}</button></div>
    <div class="cal">${['T2','T3','T4','T5','T6','T7','CN'].map(x=>`<span class="ch">${x}</span>`).join('')}${cells}</div>
    <div class="calms">${CAL_MS.map(([n,st])=>`<span class="pill${cnt>=n?' on':''}">${cnt>=n?'✓':'♡'} ${n} ngày · ${st}★</span>`).join('')}</div>
    <p class="muted" style="margin:0;font-size:.85rem">${cnt} ngày có dấu chân${calOff===0&&nextMs?`. Thêm ${nextMs[0]-cnt} ngày nữa là được ${nextMs[1]} sao.`:'.'}</p>`;
@@ -428,7 +431,7 @@ function vLessons(){nav('lessons');
   app.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>go('lesson-'+b.dataset.open));
 }
 function lessonRow(d){const open=available(d);const p=Math.round(deckProgress(d.id)*100);
-  return `<button class="card lesson ${open?'':'locked'}" ${open?`data-open="${d.id}"`:'disabled'} style="margin-bottom:10px"><span class="ic">${esc(d.jp)}</span><span style="min-width:0"><h3>${esc(d.name)}${isT()&&!d.missing?` <span class="pill" style="font-size:.72rem">${S.unlocked[d.id]?'Na: đang mở':'Na: đang khóa'}</span>`:''}</h3><span class="muted jp" style="font-size:.85rem">${esc(open?d.sub:(d.missing?d.sub:'Chờ anh mở khóa'))}</span>${open?`<div class="bar"><i style="width:${p}%"></i></div>`:''}</span><span aria-hidden="true">${open?'›':'🔒'}</span></button>`}
+  return `<button class="card lesson ${open?'':'locked'}" ${open?`data-open="${d.id}"`:'disabled'} style="margin-bottom:10px"><span class="ic">${esc(d.jp)}</span><span style="min-width:0"><h3>${esc(d.name)}${isT()&&!d.missing?` <span class="pill" style="font-size:.72rem">${S.unlocked[d.id]?'Na: đang mở':'Na: đang khóa'}</span>`:''}</h3><span class="muted jp" style="font-size:.85rem">${esc(open?d.sub:(d.missing?d.sub:'Chờ anh mở khóa'))}</span>${open?`<div class="bar"><i style="width:${p}%"></i></div>`:''}</span>${open?'<span class="chev" aria-hidden="true"></span>':'<span aria-hidden="true">🔒</span>'}</button>`}
 
 /* ---------- một bài ---------- */
 let lessonTab='vocab';
@@ -440,7 +443,7 @@ function vLesson(id){nav('lessons');const d=deckOf(id);if(!available(d))return g
   if(d.kind==='kanji')return vKanjiUnit(d);
   const B=lessonDoc(d);
   const tabs=[['vocab','Từ vựng'],['gram','Ngữ pháp'],['conv','Hội thoại']];
-  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><div style="flex:1;min-width:0"><div class="muted" style="font-weight:800">${d.name}</div><h1 class="jp">${esc(B.title)}</h1></div></div>
+  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">${ICO.l}</button><div style="flex:1;min-width:0"><div class="muted" style="font-weight:800">${d.name}</div><h1 class="jp">${esc(B.title)}</h1></div></div>
   <p style="margin:0 0 12px">${esc(B.titleVN)}. ${esc(B.sub)}.</p>
   <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${lessonTab===k}" data-t="${k}">${l}</button>`).join('')}</div>
   <div id="lbody" class="stack"></div>
@@ -460,7 +463,7 @@ function vLesson(id){nav('lessons');const d=deckOf(id);if(!available(d))return g
 }
 
 function vKanjiUnit(d){const U=lessonDoc(d);
-  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><div style="flex:1;min-width:0"><div class="muted" style="font-weight:800">${d.name} · học cùng Bài ${U.minna}</div><h1>${esc(U.titleVN)}</h1></div></div>
+  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">${ICO.l}</button><div style="flex:1;min-width:0"><div class="muted" style="font-weight:800">${d.name} · học cùng Bài ${U.minna}</div><h1>${esc(U.titleVN)}</h1></div></div>
   <p class="muted" style="margin:0 0 12px;font-weight:700">Bấm vào chữ để xem nghĩa, cách đọc, thứ tự nét và tập viết.</p>
   <div class="kgrid kj">${U.kanji.map((k,i)=>{const s=S.cards[`${d.id}:c:${i}`];return `<button class="kcell" data-i="${i}">${esc(k.k)}<small>${esc(k.hv)}</small>${s&&s.state===2?'<i class="dot" aria-label="đã thuộc"></i>':''}</button>`}).join('')}</div>
   ${isT()?'':'<button class="btn wide" id="learnNew" style="margin-top:16px">Học thẻ mới của unit này</button>'}`;
@@ -474,7 +477,7 @@ function vKana(id){const isK=id==='kata';
   const basic=ROWS.map(r=>r.map(ro=>{const c=base[i++];return cell(c==='_'?'':(isK?toKata(c):c),ro)}).join('')).join('');
   const dak=[...DH].map((c,j)=>cell(isK?toKata(c):c,DROWS[Math.floor(j/5)][j%5])).join('');
   const yo=YO.map(r=>[0,1,2].map(j=>cell(isK?toKata(r[3+j]):r[3+j],r[j])).join('')).join('');
-  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><div style="flex:1"><h1>${isK?'Katakana':'Hiragana'}</h1><div class="muted" style="font-weight:700">Bấm vào chữ để nghe, xem thứ tự nét và tập viết</div></div></div>
+  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">${ICO.l}</button><div style="flex:1"><h1>${isK?'Katakana':'Hiragana'}</h1><div class="muted" style="font-weight:700">Bấm vào chữ để nghe, xem thứ tự nét và tập viết</div></div></div>
   <div class="ksec">Âm cơ bản</div><div class="kgrid">${basic}</div>
   <div class="ksec">Âm đục, âm bán đục</div><div class="kgrid">${dak}</div>
   <div class="ksec">Âm ghép</div><div class="kgrid k3">${yo}</div>
@@ -509,7 +512,7 @@ function bindTrace(paths){
 function kanaModal(ch){
   const ro=(KANA.hira.concat(KANA.kata).find(k=>k.ch===ch)||{}).ro||(()=>{for(const r of YO)for(let j=0;j<3;j++)if(r[3+j]===ch||toKata(r[3+j])===ch)return r[j];return ''})();
   const paths=STROKES[ch]||null;
-  openSheet('Chữ '+ch,`<div class="row" style="justify-content:space-between"><div class="row"><span class="jp" style="font-size:2.6rem;font-weight:800">${esc(ch)}</span><span class="pill">${esc(ro)}</span>${spk(ch)}</div><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+  openSheet('Chữ '+ch,`<div class="row" style="justify-content:space-between"><div class="row"><span class="jp" style="font-size:2.6rem;font-weight:800">${esc(ch)}</span><span class="pill">${esc(ro)}</span>${spk(ch)}</div><button class="back" id="cls" aria-label="Đóng">${ICO.x}</button></div>
     ${paths?traceHTML(paths.length):`<p class="muted">Chữ ghép: viết như hai chữ, chữ sau nhỏ hơn. Bấm loa để nghe.</p>`}`);
   if(paths)bindTrace(paths);
 }
@@ -517,7 +520,7 @@ async function kanjiModal(k){track('kanji');
   if(!KSTROKES){try{KSTROKES=await (await fetch('data/kanji_strokes.json')).json()}catch(e){KSTROKES={}}}
   const paths=KSTROKES[k.k]||null;
   const words=k.words.map(w=>{const s=kwSegs(w[0]);return `<div class="ex"><div style="min-width:0"><div class="j">${rubyHTML(s,'show')}</div><div class="muted" style="font-size:.9rem">${esc(w[1])}</div></div>${spk(reading(s))}</div>`}).join('');
-  openSheet('Chữ '+k.k,`<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div class="row"><span class="jp" style="font-size:2.8rem;font-weight:800">${esc(k.k)}</span><span class="pill">${esc(k.hv)}</span></div><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+  openSheet('Chữ '+k.k,`<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div class="row"><span class="jp" style="font-size:2.8rem;font-weight:800">${esc(k.k)}</span><span class="pill">${esc(k.hv)}</span></div><button class="back" id="cls" aria-label="Đóng">${ICO.x}</button></div>
     <p style="margin:0;font-weight:800">${esc(k.mean)}</p>
     <dl class="kinfo"><dt>Âm Kun</dt><dd>${esc(k.kun||'–')}</dd><dt>Âm On</dt><dd>${esc(k.on||'–')}</dd></dl>
     <div class="card" style="padding:10px 14px"><h3>Từ có chữ này</h3>${words}</div>
@@ -587,7 +590,7 @@ function renderCard(){gradeLock=false;
   const marks=[];for(let k=5;k<Q.length;k+=5)marks.push({at:k/Q.length*100,on:qi>=k});
   const cp=qi>0&&qi%5===0;
   const msg=left<=3?`Còn ${left} thẻ nữa thôi, sắp tới chỗ anh rồi!`:cp?`Được ${qi} thẻ rồi! Giỏi quá ♥`:'';
-  app.innerHTML=`<div class="rv"><div class="trip"><button class="back" id="quit" aria-label="Dừng ôn">✕</button><button class="back" id="vidback" aria-label="Bật lại video" ${vidAllowed()&&LOCAL.vidOff===dkey()?'':'hidden'}>▶</button><div style="flex:1;min-width:0" aria-label="Đã ôn ${qi} trên ${Q.length} thẻ">${tripBar(pct,marks,lastPct)}</div><span class="pill cnt">${left}</span></div>
+  app.innerHTML=`<div class="rv"><div class="trip"><button class="back" id="quit" aria-label="Dừng ôn">${ICO.x}</button><button class="back" id="vidback" aria-label="Bật lại video" ${vidAllowed()&&LOCAL.vidOff===dkey()?'':'hidden'}>${ICO.p}</button><div style="flex:1;min-width:0" aria-label="Đã ôn ${qi} trên ${Q.length} thẻ">${tripBar(pct,marks,lastPct)}</div><span class="pill cnt">${left}</span></div>
     <div class="tripmsg">${okStreak>=3?`<span class="combo" aria-label="Đúng liền ${okStreak} thẻ">🔥 Đúng liền ${okStreak}</span>`:''}${msg?`<span class="tm">${esc(msg)}</span>`:''}</div>
     <div class="card flash in" id="fl">${front(c,isNew)}<span class="swl">Quên</span><span class="swr">Được</span></div><div id="act" class="swguide"><span class="sg l">← Quên</span><span class="sg m">Chạm thẻ để lật</span><span class="sg r">Được →</span></div></div>`;
   $('#quit').onclick=()=>{sessionDeck=null;go('home')};$('#vidback').onclick=()=>{delete LOCAL.vidOff;saveLocal();vidSync();renderTop()};
@@ -682,12 +685,12 @@ function vGames(){nav('games');const all=gamePool();
   const best=t=>Math.max(0,...S.games.filter(g=>g.t===t).map(g=>g.s));
   app.innerHTML=`<div class="stack"><div class="hero"><img src="${IMG('n04_co_vu')}" alt=""><div class="bubble">Chơi game cũng là ôn bài đó! Từ nào em sai, anh đưa vào lượt ôn sớm hơn.</div></div>
   <div class="tabs" role="tablist">${srcs.map(([k,l])=>`<button role="tab" aria-selected="${gameSrc===k}" data-s="${k}">${l}</button>`).join('')}</div>
-  <button class="card lesson" id="g1"><span class="ic">🃏</span><span><h3>Lật hình ghép cặp</h3><span class="muted" style="font-size:.85rem">Tìm 6 cặp chữ và nghĩa · kỷ lục ${best('match')||'chưa có'}</span></span><span>›</span></button>
-  <button class="card lesson" id="g3"><span class="ic">🍣</span><span><h3>Sushi băng chuyền</h3><span class="muted" style="font-size:.85rem">Bắt đúng đĩa trước khi nó chạy mất · kỷ lục ${best('sushi')||'chưa có'}</span></span><span>›</span></button>
-  <button class="card lesson" id="g4"><span class="ic">🎧</span><span><h3>Nghe và chọn</h3><span class="muted" style="font-size:.85rem">Nghe anh đọc rồi chọn nghĩa đúng · kỷ lục ${best('listen')||'chưa có'}</span></span><span>›</span></button>
-  <button class="card lesson" id="g5"><span class="ic">🧩</span><span><h3>Xếp câu</h3><span class="muted" style="font-size:.85rem">Ghép mảnh thành câu mẫu trong bài · kỷ lục ${best('order')||'chưa có'}</span></span><span>›</span></button>
-  <button class="card lesson" id="g6"><span class="ic">👾</span><span><h3>Boss chiến</h3><span class="muted" style="font-size:.85rem">Trả lời đúng để đánh boss · đã hạ ${S.games.filter(g=>g.t==='boss'&&g.w).length} boss</span></span><span>›</span></button>
-  <button class="card lesson" id="g2"><span class="ic">⏱</span><span><h3>Đua 60 giây</h3><span class="muted" style="font-size:.85rem">Trả lời càng nhiều càng tốt · kỷ lục ${best('race')} câu</span></span><span>›</span></button></div>`;
+  <button class="card lesson" id="g1"><span class="ic">🃏</span><span><h3>Lật hình ghép cặp</h3><span class="muted" style="font-size:.85rem">Tìm 6 cặp chữ và nghĩa · kỷ lục ${best('match')||'chưa có'}</span></span><span class="chev" aria-hidden="true"></span></button>
+  <button class="card lesson" id="g3"><span class="ic">🍣</span><span><h3>Sushi băng chuyền</h3><span class="muted" style="font-size:.85rem">Bắt đúng đĩa trước khi nó chạy mất · kỷ lục ${best('sushi')||'chưa có'}</span></span><span class="chev" aria-hidden="true"></span></button>
+  <button class="card lesson" id="g4"><span class="ic">🎧</span><span><h3>Nghe và chọn</h3><span class="muted" style="font-size:.85rem">Nghe anh đọc rồi chọn nghĩa đúng · kỷ lục ${best('listen')||'chưa có'}</span></span><span class="chev" aria-hidden="true"></span></button>
+  <button class="card lesson" id="g5"><span class="ic">🧩</span><span><h3>Xếp câu</h3><span class="muted" style="font-size:.85rem">Ghép mảnh thành câu mẫu trong bài · kỷ lục ${best('order')||'chưa có'}</span></span><span class="chev" aria-hidden="true"></span></button>
+  <button class="card lesson" id="g6"><span class="ic">👾</span><span><h3>Boss chiến</h3><span class="muted" style="font-size:.85rem">Trả lời đúng để đánh boss · đã hạ ${S.games.filter(g=>g.t==='boss'&&g.w).length} boss</span></span><span class="chev" aria-hidden="true"></span></button>
+  <button class="card lesson" id="g2"><span class="ic">⏱</span><span><h3>Đua 60 giây</h3><span class="muted" style="font-size:.85rem">Trả lời càng nhiều càng tốt · kỷ lục ${best('race')} câu</span></span><span class="chev" aria-hidden="true"></span></button></div>`;
   app.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{gameSrc=b.dataset.s;vGames()});
   $('#g1').onclick=()=>go('game-match');$('#g3').onclick=()=>go('game-sushi');$('#g4').onclick=()=>go('game-listen');$('#g5').onclick=()=>go('game-order');$('#g6').onclick=()=>go('game-boss');$('#g2').onclick=()=>go('game-race');
 }
@@ -699,14 +702,14 @@ function endGame(t,s,msg,extra){const add=Math.max(1,Math.round(s/2));S.games.pu
   setTimeout(showReveal,900)}
 function gMatch(){nav('games');const pool=shuffle(srcPool()).slice(0,6);if(pool.length<3)return go('games');
   const tiles=shuffle(pool.flatMap((p,i)=>[{i,txt:p.q,jp:true},{i,txt:p.a,jp:false}]));let open=[],done=0,moves=0,lock=false;const t0=Date.now();
-  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h2 style="flex:1">Lật hình ghép cặp</h2><span class="pill" id="mv">0 lượt</span></div><div class="mgrid" id="mg">${tiles.map((t,k)=>`<button class="mcard" data-k="${k}" aria-label="Thẻ úp">?</button>`).join('')}</div>`;
+  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">${ICO.l}</button><h2 style="flex:1">Lật hình ghép cặp</h2><span class="pill" id="mv">0 lượt</span></div><div class="mgrid" id="mg">${tiles.map((t,k)=>`<button class="mcard" data-k="${k}" aria-label="Thẻ úp">?</button>`).join('')}</div>`;
   $('#mg').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{if(lock)return;const k=+b.dataset.k,t=tiles[k];if(b.classList.contains('open')||b.classList.contains('done'))return;
     b.classList.add('open');b.innerHTML=t.jp?`<span class="jp">${esc(t.txt)}</span>`:esc(t.txt);if(t.jp)say(pool[t.i].say||t.txt);open.push([b,t]);
     if(open.length===2){moves++;$('#mv').textContent=moves+' lượt';const [[b1,t1],[b2,t2]]=open;open=[];
       if(t1.i===t2.i&&t1.jp!==t2.jp){b1.classList.add('done');b2.classList.add('done');{const [x,y]=mid(b2);burst(x,y,6)}done++;if(done===pool.length){const s=Math.max(1,18-moves);setTimeout(()=>endGame('match',s,`Xong trong ${moves} lượt, ${Math.round((Date.now()-t0)/1000)} giây! ${pick(LINES.praise)}`),500)}}
       else{lock=true;shake(b1);shake(b2);wrongToReview(pool[t1.i].id);setTimeout(()=>{[b1,b2].forEach(x=>{x.classList.remove('open');x.textContent='?'});lock=false},800)}}})}
 function gRace(){nav('games');const pool=srcPool();if(pool.length<4)return go('games');let score=0,left=60,q=null,tm=null;
-  app.innerHTML=`<div class="top"><button class="back" id="bk" aria-label="Quay lại">‹</button><h2 style="flex:1">Đua 60 giây</h2><span class="pill" id="tl">60 giây</span><span class="pill" id="sc">0 câu</span></div><div class="card flash" style="min-height:200px" id="qq"></div><div class="opts" id="op" style="margin-top:12px"></div>`;
+  app.innerHTML=`<div class="top"><button class="back" id="bk" aria-label="Quay lại">${ICO.l}</button><h2 style="flex:1">Đua 60 giây</h2><span class="pill" id="tl">60 giây</span><span class="pill" id="sc">0 câu</span></div><div class="card flash" style="min-height:200px" id="qq"></div><div class="opts" id="op" style="margin-top:12px"></div>`;
   $('#bk').onclick=()=>{clearInterval(tm);history.back()};
   addEventListener('hashchange',()=>clearInterval(tm),{once:true});
   const next=()=>{if(!$('#qq'))return;q=pick(pool);const same=pool.filter(x=>x.src===q.src&&x.a!==q.a);const opts=shuffle([q].concat(shuffle(same.length>=3?same:pool.filter(x=>x.a!==q.a)).slice(0,3)));
@@ -717,7 +720,7 @@ function gRace(){nav('games');const pool=srcPool();if(pool.length<4)return go('g
 // Sushi băng chuyền: đĩa chở chữ chạy ngang, chạm đúng đĩa có nghĩa đang hỏi. Sai hoặc để lỡ đĩa thì mất tim. Càng đúng càng nhanh.
 function gSushi(){nav('games');const pool=srcPool();if(pool.length<4)return go('games');
   const FOOD=['🍣','🍙','🍤','🍥','🍡','🥟','🍱','🍘'];let hearts=3,score=0,combo=0,target=null,plates=[],last=0,spawnAt=0,raf=0,over=false,paused=false,sinceT=0,uid=0;
-  app.innerHTML=`<div class="top"><button class="back" id="bk" aria-label="Quay lại">‹</button><h2 style="flex:1">Sushi băng chuyền</h2><span class="pill" id="hp" aria-label="Tim còn lại" style="color:var(--again)"></span><span class="pill" id="sc">0 điểm</span></div>
+  app.innerHTML=`<div class="top"><button class="back" id="bk" aria-label="Quay lại">${ICO.l}</button><h2 style="flex:1">Sushi băng chuyền</h2><span class="pill" id="hp" aria-label="Tim còn lại" style="color:var(--again)"></span><span class="pill" id="sc">0 điểm</span></div>
    <div class="card sushiq"><span class="muted" style="font-weight:800;font-size:.85rem">Bắt đĩa có nghĩa là</span><b id="tg"></b><span class="sushicb" id="cb"></span></div>
    <div class="belt" id="belt"><div class="beltline"></div></div>
    <p class="muted" style="text-align:center;margin:10px 0 0;font-size:.85rem">Chạm đĩa đúng. Đĩa vàng được 3 điểm, đúng liền 5 đĩa thêm 1 tim.</p>`;
@@ -746,7 +749,7 @@ function gSushi(){nav('games');const pool=srcPool();if(pool.length<4)return go('
 
 // Nghe và chọn: app đọc, Na chọn nghĩa (hoặc chữ kana) đúng trong 4 ô. 12 câu, 3 tim.
 function gListen(){nav('games');const pool=srcPool();if(pool.length<4)return go('games');let n=0,score=0,hearts=3,combo=0,q=null,opts=[],busy=false;const N=QK===1?6:12;
-  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h2 style="flex:1">Nghe và chọn</h2><span class="pill" id="hp" style="color:var(--again)"></span><span class="pill" id="sc">1/${N}</span></div>
+  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">${ICO.l}</button><h2 style="flex:1">Nghe và chọn</h2><span class="pill" id="hp" style="color:var(--again)"></span><span class="pill" id="sc">1/${N}</span></div>
    <div class="card flash" style="min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px"><button class="lbig" id="ply" aria-label="Nghe lại">🔊</button><span class="muted" style="font-weight:800" id="lh">Chạm loa để nghe lại</span><span class="sushicb" id="cb"></span></div>
    <div class="opts" id="op" style="margin-top:12px"></div>${jaVoice?'':'<p class="muted" style="font-size:.85rem;text-align:center">Máy chưa có giọng tiếng Nhật nên giọng đọc có thể lạ, xem cách tải giọng ở tab Tớ.</p>'}`;
   const hp=()=>$('#hp').textContent='❤'.repeat(hearts)+'♡'.repeat(3-hearts);hp();
@@ -770,7 +773,7 @@ function orderPool(){const out=[];for(const d of unlockedDecks())for(const c of 
   return out}
 function gOrder(){nav('games');const pool=shuffle(orderPool());if(pool.length<1){toast('na03_boi_roi','Chưa có câu mẫu nào, mở thêm bài có ngữ pháp nha.');return go('games')}
   const N=Math.min(QK===2?2:6,pool.length);let n=0,score=0,mist=0,cur=null,picked=[],t0=0;
-  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">‹</button><h2 style="flex:1">Xếp câu</h2><span class="pill" id="sc">1/${N}</span></div>
+  app.innerHTML=`<div class="top"><button class="back" onclick="history.back()" aria-label="Quay lại">${ICO.l}</button><h2 style="flex:1">Xếp câu</h2><span class="pill" id="sc">1/${N}</span></div>
    <div class="card stack"><span class="muted" style="font-weight:800;font-size:.85rem">Xếp thành câu</span><b id="vn" style="font-size:1.1rem"></b><div class="oline" id="ol"></div></div>
    <div class="obank" id="ob"></div>`;
   const draw=()=>{$('#ol').innerHTML=picked.map(i=>`<span class="ochip jp">${rubyHTML(cur.chunks[i],'show')}</span>`).join('')||'<span class="muted">Chạm các mảnh bên dưới theo thứ tự</span>'};
@@ -788,7 +791,7 @@ function gOrder(){nav('games');const pool=shuffle(orderPool());if(pool.length<1)
 const BOSSES=[['👾','Quái Kana nghịch ngợm'],['👻','Ma Quên Bài'],['🐙','Bạch tuộc Trợ từ'],['👹','Quỷ Động từ'],['🦖','Khủng long Kanji'],['🐉','Rồng Ngữ pháp'],['🤖','Robot Đề thi'],['🧙','Phù thủy N5']];
 function gBoss(){nav('games');const pool=srcPool();if(pool.length<4)return go('games');
   const wins=S.games.filter(g=>g.t==='boss'&&g.w).length,lv=wins+1,B=BOSSES[wins%BOSSES.length],MAX=8+wins*2;let bhp=MAX,hearts=3,combo=0,dmg=0,q=null,opts=[],busy=false,tm=null,left=0;
-  app.innerHTML=`<div class="top"><button class="back" id="bk" aria-label="Quay lại">‹</button><h2 style="flex:1">Boss chiến</h2><span class="pill" id="hp" style="color:var(--again)"></span></div>
+  app.innerHTML=`<div class="top"><button class="back" id="bk" aria-label="Quay lại">${ICO.l}</button><h2 style="flex:1">Boss chiến</h2><span class="pill" id="hp" style="color:var(--again)"></span></div>
    <div class="card boss"><div class="bname"><b>${esc(B[1])}</b><span class="muted">Cấp ${lv}</span></div><div class="bbar"><i id="bb"></i></div><div class="bmon" id="bm">${B[0]}</div><div class="btime"><i id="bt"></i></div></div>
    <div class="card flash" style="min-height:110px;margin-top:12px" id="qq"></div><div class="opts" id="op" style="margin-top:12px"></div>`;
   const hp=()=>$('#hp').textContent='❤'.repeat(hearts)+'♡'.repeat(3-hearts);hp();
@@ -961,14 +964,14 @@ function vAlbum(){nav('album');checkStickers();const fresh=new Set(LOCAL.fresh3|
   if(fresh.size){LOCAL.fresh3=[];saveLocal()}
   setTimeout(showReveal,350)}
 function lockSheet(id){const x=STK_ALL.find(s=>s.id===id);if(!x||own(id))return;const bal=starBal();
-  openSheet('Sticker đang khóa',`<div class="row" style="justify-content:space-between"><h2>${x.price?'Mua sticker':'Nhiệm vụ'}</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+  openSheet('Sticker đang khóa',`<div class="row" style="justify-content:space-between"><h2>${x.price?'Mua sticker':'Nhiệm vụ'}</h2><button class="back" id="cls" aria-label="Đóng">${ICO.x}</button></div>
    <img class="sbig lockbig" src="${SIMG(id)}" alt="">
    ${x.price?`<p style="margin:0;text-align:center;font-weight:900;font-size:1.2rem">★ ${x.price} sao</p><p class="muted" style="margin:0;text-align:center;font-weight:700">Em đang có ${bal} sao${bal<x.price?`, còn thiếu ${x.price-bal} sao`:''}</p>
      <button class="btn wide" id="buy" ${bal<x.price?'disabled':''}>${bal<x.price?'Chưa đủ sao':'Mua và mở quà'}</button>`
    :`<p style="margin:0;text-align:center;font-weight:900;font-size:1.1rem">${esc(x.quest)}</p><p class="muted" style="margin:0;text-align:center;font-weight:700">Làm xong là sticker tự mở nha</p>`}`);
   $('#buy')&&($('#buy').onclick=()=>buySticker(id))}
 function stickerSheet(id){const s=STK_ALL.find(x=>x.id===id);if(!s)return;const d=new Date(own(id));
-  openSheet(s.cap,`<div class="row" style="justify-content:space-between"><h2>${esc(s.cap)}</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+  openSheet(s.cap,`<div class="row" style="justify-content:space-between"><h2>${esc(s.cap)}</h2><button class="back" id="cls" aria-label="Đóng">${ICO.x}</button></div>
    <img class="sbig" src="${SIMG(id)}" alt="${esc(s.cap)}">
    <p class="muted" style="margin:0;text-align:center;font-weight:700">Bộ ${esc(s.p.name)} · nhận ngày ${d.toLocaleDateString('vi-VN')}</p>
    <button class="btn wide" id="shr">Lưu / chia sẻ sticker</button>`);
@@ -1034,9 +1037,9 @@ function duckFor(u){duck=.25;applyVol();window.VID&&VID.duck(1);const up=()=>{du
 function soundCard(){const el=$('#sound');if(!el)return;
   el.innerHTML=`<h3>Âm thanh</h3>
    <div class="switch"><span><b>Nhạc nền</b><br><span class="muted" style="font-size:.85rem">Nhạc hộp nhạc nhẹ nhàng khi học</span></span><button class="tg" role="switch" id="smu" aria-checked="${SND.music}" aria-label="Nhạc nền"></button></div>
-   ${SND.music?`<label class="field vol" for="smv">Âm lượng nhạc nền<input id="smv" type="range" min="5" max="100" step="5" value="${Math.round(SND.mv*100)}"></label>`:''}
+   ${SND.music?`<label class="field vol" for="smv">Âm lượng nhạc nền<input id="smv" type="range" min="5" max="100" step="5" value="${Math.round(SND.mv*100)}" style="--p:${(Math.round(SND.mv*100)-5)/.95}%"></label>`:''}
    <div class="switch"><span><b>Hiệu ứng âm thanh</b><br><span class="muted" style="font-size:.85rem">Tiếng đúng, sai, lật thẻ, mở quà</span></span><button class="tg" role="switch" id="sfx" aria-checked="${SND.fx}" aria-label="Hiệu ứng âm thanh"></button></div>
-   ${SND.fx?`<label class="field vol" for="sfv">Âm lượng hiệu ứng<input id="sfv" type="range" min="5" max="100" step="5" value="${Math.round(SND.fv*100)}"></label>`:''}
+   ${SND.fx?`<label class="field vol" for="sfv">Âm lượng hiệu ứng<input id="sfv" type="range" min="5" max="100" step="5" value="${Math.round(SND.fv*100)}" style="--p:${(Math.round(SND.fv*100)-5)/.95}%"></label>`:''}
    <p class="muted" style="margin:0;font-size:.82rem">iPhone đang để chế độ im lặng thì có thể không nghe nhạc. Lúc đọc tiếng Nhật, nhạc tự nhỏ lại.</p>`;
   $('#smu').onclick=()=>{SND.music=!SND.music;sndSave();soundCard()};
   $('#sfx').onclick=()=>{SND.fx=!SND.fx;sndSave();soundCard();sfx('ok')};
@@ -1052,7 +1055,7 @@ function letterHTML(){const u=unreadMsgs();if(!u.length)return '';const m=u[0],o
   return `<button class="card letter${ok?' ready':''}" id="letter" aria-label="Thư của anh"><span class="env" aria-hidden="true"><span class="flap"></span><span class="seal">${ok?'♥':'🔒'}</span></span><span style="min-width:0;text-align:left"><b>${u.length>1?`Anh gửi em ${u.length} lá thư`:'Anh gửi em một lá thư'}</b><br><span class="muted" style="font-size:.85rem;font-weight:700">${ok?'Chạm để mở nè':'Ôn xong thẻ hôm nay mới mở được nha'}</span></span></button>`}
 function openLetter(){const m=unreadMsgs()[0];if(!m)return;
   if(!msgOpenable(m)){const G=dayGoal();shake($('#letter'));return toast('n06_nhac_gio',`Còn ${G.left} thẻ nữa mới mở được thư nha em~`)}
-  openSheet('Thư của anh',`<div class="row" style="justify-content:space-between"><h2>Thư của anh</h2><button class="back" id="cls" aria-label="Đóng">✕</button></div>
+  openSheet('Thư của anh',`<div class="row" style="justify-content:space-between"><h2>Thư của anh</h2><button class="back" id="cls" aria-label="Đóng">${ICO.x}</button></div>
    <div class="paper"><img src="${IMG(m.st||'02_ban_tay_tim')}" alt=""><p>${esc(m.t)}</p><span class="muted" style="font-size:.8rem;font-weight:700">Anh Nhân · ${new Date(m.at).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'numeric'})}</span></div>
    <button class="btn wide" id="gotit">${unreadMsgs().length>1?'Đọc thư tiếp':'Thương anh ♥'}</button>`);
   sfx('gift');setTimeout(()=>{const p=$('.paper');if(p){const [x,y]=mid(p);burst(x,y,14,'♥♥✿')}},250);
@@ -1187,7 +1190,7 @@ Promise.all(['data/kana_strokes.json','data/hv.json'].map(u=>fetch(u).then(r=>r.
 addEventListener('visibilitychange',()=>{if(document.hidden){sessionStop();sync()}else{if(location.hash==='#review'&&!sessStart&&Q.length)sessStart=Date.now();sync()}});
 setInterval(()=>{if(!document.hidden&&isT())sync()},60000);
 // kiểm tra bản mới mỗi lần mở lại app (iPhone hay giữ app chạy ngầm nên không tự tải lại)
-const APP_V='20261124175828';let needReload=false;
+const APP_V='20261128200145';let needReload=false;
 async function checkVersion(){try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();if(j.v&&j.v!==APP_V){const k='nwn-rl-'+j.v,n=+(ls.get(k,0));if(n>=2)return;ls.set(k,n+1);if(/^#(review|game-)/.test(location.hash))needReload=true;else location.reload()}}catch(e){}}
 if(location.protocol==='https:'){addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion()});setTimeout(checkVersion,4000);addEventListener('hashchange',()=>{if(needReload&&!/^#(review|game-)/.test(location.hash))location.reload()})}
 if('serviceWorker' in navigator&&location.protocol==='https:'){
